@@ -1,0 +1,20 @@
+name: Security Audit
+
+on:
+  push:
+    paths:
+      - '**/Cargo.lock'
+      - '**/Cargo.toml'
+  schedule:
+    - cron: '0 0 * * 0' # Weekly scan every Sunday
+  workflow_dispatch:
+
+jobs:
+  security-audit:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

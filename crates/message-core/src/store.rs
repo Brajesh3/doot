@@ -192,7 +192,7 @@ impl Store {
     pub fn get_contacts(&self) -> Vec<Contact> {
         let mut list: Vec<Contact> = self.contacts.values().cloned().collect();
         // Sort contacts by last seen or nickname
-        list.sort_by(|a, b| b.last_seen.cmp(&a.last_seen));
+        list.sort_by_key(|a| std::cmp::Reverse(a.last_seen));
         list
     }
 

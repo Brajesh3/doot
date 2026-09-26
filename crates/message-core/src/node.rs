@@ -387,7 +387,12 @@ async fn handle_connect_peer(
 
     // Dial peer with 12-second timeout
     tracing::info!("Dialing peer {}", peer_key_str);
-    match tokio::time::timeout(Duration::from_secs(12), endpoint.connect(addr.clone(), ALPN_NAME)).await {
+    match tokio::time::timeout(
+        Duration::from_secs(12),
+        endpoint.connect(addr.clone(), ALPN_NAME),
+    )
+    .await
+    {
         Ok(Ok(conn)) => {
             tracing::info!("Successfully connected to peer {}", peer_key_str);
 
@@ -489,6 +494,7 @@ async fn get_or_dial_connection(
     Ok(conn)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_send_text(
     endpoint: &Endpoint,
     active_connections: &Arc<RwLock<HashMap<PublicKey, Connection>>>,

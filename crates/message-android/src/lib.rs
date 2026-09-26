@@ -1,7 +1,7 @@
 use jni::objects::{JClass, JString};
 use jni::sys::{jboolean, jstring, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
-use message_core::{MessengerCommand, MessengerEvent, MessengerHandle};
+use message_core::{MessengerCommand, MessengerHandle};
 use parking_lot::Mutex;
 use std::path::PathBuf;
 use tokio::runtime::Runtime;

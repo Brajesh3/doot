@@ -221,7 +221,8 @@ impl MessengerApp {
 
 impl eframe::App for MessengerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        static FIRST_FRAME: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+        static FIRST_FRAME: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(true);
         if FIRST_FRAME.swap(false, std::sync::atomic::Ordering::Relaxed) {
             tracing::info!("First frame update called! Window is rendering.");
             ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
@@ -704,21 +705,20 @@ impl MessengerApp {
             });
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if !is_connected {
-                    if ui
+                if !is_connected
+                    && ui
                         .button(RichText::new("🔄 Reconnect").size(12.5))
                         .clicked()
-                    {
-                        let ticket_to_use = contact
-                            .as_ref()
-                            .and_then(|c| c.ticket.clone())
-                            .unwrap_or_else(|| peer_key.to_string());
-                        let _ = self.handle.send_command(MessengerCommand::ConnectPeer {
-                            ticket_or_id: ticket_to_use,
-                            nickname: Some(contact_name.clone()),
-                        });
-                        self.set_banner(format!("Reconnecting to {}...", contact_name), false);
-                    }
+                {
+                    let ticket_to_use = contact
+                        .as_ref()
+                        .and_then(|c| c.ticket.clone())
+                        .unwrap_or_else(|| peer_key.to_string());
+                    let _ = self.handle.send_command(MessengerCommand::ConnectPeer {
+                        ticket_or_id: ticket_to_use,
+                        nickname: Some(contact_name.clone()),
+                    });
+                    self.set_banner(format!("Reconnecting to {}...", contact_name), false);
                 }
 
                 if ui.button(RichText::new("📋 Copy Key").size(12.5)).clicked() {
