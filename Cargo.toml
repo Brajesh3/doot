@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/message-core",
+    "crates/message-desktop",
+    "crates/message-bot",
+    "crates/message-android",
+]
+resolver = "2"

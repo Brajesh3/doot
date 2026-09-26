@@ -1,0 +1,20 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Android & Gradle
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.dex
+*.so
+.cxx/
+.externalNativeBuild/
+captures/
+.idea/
+*.iml
+
+# Logs
+*.log

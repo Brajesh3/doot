@@ -1,0 +1,11 @@
+[package]
+name = "message-bot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+message-core = { path = "../message-core" }
+tokio = { version = "1.40", features = ["full"] }
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
