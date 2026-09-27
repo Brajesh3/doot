@@ -56,6 +56,42 @@ async fn main() -> Result<()> {
                         content: reply,
                     });
                 }
+                MessengerEvent::FileTransferProgress {
+                    file_id,
+                    bytes_transferred,
+                    total_bytes,
+                    is_outgoing,
+                    ..
+                } => {
+                    let dir = if is_outgoing { "Sending" } else { "Receiving" };
+                    let pct = if total_bytes > 0 {
+                        (bytes_transferred as f64 / total_bytes as f64) * 100.0
+                    } else {
+                        100.0
+                    };
+                    println!(
+                        "⏳ [{}] File {} : {:.1}% ({}/{} bytes)",
+                        dir, file_id, pct, bytes_transferred, total_bytes
+                    );
+                }
+                MessengerEvent::FileTransferComplete {
+                    peer_key,
+                    file_id: _,
+                    local_path,
+                    is_outgoing,
+                } => {
+                    if !is_outgoing {
+                        println!("🎉 [FILE SAVED] Stored at: {}", local_path);
+                        let reply = format!(
+                            "Echo Bot: Received and verified your file/folder at '{}' over Iroh QUIC! 🚀",
+                            local_path
+                        );
+                        let _ = handle.send_command(MessengerCommand::SendTextMessage {
+                            peer_key,
+                            content: reply,
+                        });
+                    }
+                }
                 MessengerEvent::MessageStatusUpdated {
                     message_id: _,
                     status,

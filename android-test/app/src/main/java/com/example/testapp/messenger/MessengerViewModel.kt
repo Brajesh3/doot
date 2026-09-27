@@ -18,10 +18,11 @@ data class MessengerUiState(
     val isInitialized: Boolean = false,
     val myTicket: String = "",
     val myNodeId: String = "",
-    val myNickname: String = "Android Device",
+    val myNickname: String = "Doot Android",
     val contacts: List<ContactItem> = emptyList(),
     val activePeer: ContactItem? = null,
     val messages: List<MessageItem> = emptyList(),
+    val connectionTypes: Map<String, ConnectionInfo> = emptyMap(),
     val isPeerTyping: Boolean = false,
     val bannerMessage: String? = null
 )
@@ -98,10 +99,36 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 type == "PeerConnected" || evt.has("PeerConnected") -> {
                     refreshContacts = true
+                    val pk = evt.optString("peer_key", "")
+                    val ctObj = evt.optJSONObject("connection_type")
+                    if (ctObj != null && pk.isNotBlank()) {
+                        val kind = ctObj.optString("kind", "Unknown")
+                        val addr = ctObj.optString("addr", "")
+                        val url = ctObj.optString("url", "")
+                        val rtt = ctObj.optLong("rtt_ms", 0L)
+                        val info = ConnectionInfo(kind, addr, url, rtt)
+                        _uiState.update { it.copy(connectionTypes = it.connectionTypes + (pk to info)) }
+                    }
                     _uiState.update { it.copy(bannerMessage = "Peer connected via QUIC!") }
+                }
+                type == "ConnectionInfoUpdated" || evt.has("ConnectionInfoUpdated") -> {
+                    val pk = evt.optString("peer_key", "")
+                    val ctObj = evt.optJSONObject("connection_type")
+                    if (ctObj != null && pk.isNotBlank()) {
+                        val kind = ctObj.optString("kind", "Unknown")
+                        val addr = ctObj.optString("addr", "")
+                        val url = ctObj.optString("url", "")
+                        val rtt = ctObj.optLong("rtt_ms", 0L)
+                        val info = ConnectionInfo(kind, addr, url, rtt)
+                        _uiState.update { it.copy(connectionTypes = it.connectionTypes + (pk to info)) }
+                    }
                 }
                 type == "PeerDisconnected" || evt.has("PeerDisconnected") -> {
                     refreshContacts = true
+                    val pk = evt.optString("peer_key", "")
+                    if (pk.isNotBlank()) {
+                        _uiState.update { it.copy(connectionTypes = it.connectionTypes - pk) }
+                    }
                 }
                 type == "PeerTyping" || evt.has("PeerTyping") -> {
                     _uiState.update { it.copy(isPeerTyping = true) }
@@ -116,6 +143,17 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 type == "ContactListUpdated" || evt.has("ContactListUpdated") -> {
                     refreshContacts = true
+                }
+                type == "FileTransferProgress" || evt.has("FileTransferProgress") -> {
+                    refreshMessages = true
+                }
+                type == "FileTransferComplete" || evt.has("FileTransferComplete") -> {
+                    refreshMessages = true
+                    refreshContacts = true
+                    val isOutgoing = evt.optBoolean("is_outgoing", false)
+                    if (!isOutgoing) {
+                        setBanner("File received and verified over Iroh QUIC!")
+                    }
                 }
                 type == "Error" || evt.has("Error") -> {
                     val errMsg = evt.optString("error", "Connection error")
@@ -212,6 +250,27 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         val active = _uiState.value.activePeer ?: return
         viewModelScope.launch(Dispatchers.IO) {
             MessengerBridge.sendTyping(active.peerKey, isTyping)
+        }
+    }
+
+    fun sendFile(path: String, isDirectory: Boolean = false) {
+        val active = _uiState.value.activePeer ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = MessengerBridge.sendFile(active.peerKey, path, isDirectory)
+            if (ok) {
+                delay(80)
+                val msgs = MessengerBridge.parseMessages(MessengerBridge.getMessagesJson(active.peerKey))
+                val contacts = MessengerBridge.parseContacts(MessengerBridge.getContactsJson())
+                _uiState.update { it.copy(messages = msgs, contacts = contacts) }
+            } else {
+                setBanner("Failed to send ${if (isDirectory) "folder" else "file"}")
+            }
+        }
+    }
+
+    fun pingPeer(peerKey: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            MessengerBridge.pingPeer(peerKey)
         }
     }
 

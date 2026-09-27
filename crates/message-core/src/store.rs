@@ -20,6 +20,18 @@ pub enum MessageStatus {
     Failed(String),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FileAttachment {
+    pub file_id: Uuid,
+    pub file_name: String,
+    pub file_size: u64,
+    pub mime_type: String,
+    pub blake3_hash: String,
+    pub is_directory: bool,
+    #[serde(default)]
+    pub local_path: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredMessage {
     pub id: Uuid,
@@ -29,6 +41,8 @@ pub struct StoredMessage {
     pub content: String,
     pub timestamp: DateTime<Utc>,
     pub status: MessageStatus,
+    #[serde(default)]
+    pub attachment: Option<FileAttachment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +62,7 @@ struct StoreData {
     messages: HashMap<String, Vec<StoredMessage>>,
 }
 
+#[derive(Debug)]
 pub struct Store {
     data_dir: PathBuf,
     contacts: HashMap<String, Contact>,
@@ -121,7 +136,13 @@ impl Store {
 
     pub fn add_message(&mut self, msg: StoredMessage) -> Result<()> {
         let peer = msg.conversation_peer.clone();
-        let preview = if msg.content.chars().count() > 40 {
+        let preview = if let Some(att) = &msg.attachment {
+            if att.is_directory {
+                format!("📁 {}", att.file_name)
+            } else {
+                format!("📎 {}", att.file_name)
+            }
+        } else if msg.content.chars().count() > 40 {
             format!("{}...", msg.content.chars().take(40).collect::<String>())
         } else {
             msg.content.clone()
@@ -170,6 +191,23 @@ impl Store {
             if let Some(msg) = msgs.iter_mut().find(|m| m.id == message_id) {
                 msg.status = status;
                 self.save()?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn update_attachment_local_path(
+        &mut self,
+        peer_key: &str,
+        message_id: Uuid,
+        local_path: String,
+    ) -> Result<()> {
+        if let Some(msgs) = self.messages.get_mut(peer_key) {
+            if let Some(msg) = msgs.iter_mut().find(|m| m.id == message_id) {
+                if let Some(att) = &mut msg.attachment {
+                    att.local_path = Some(local_path);
+                    self.save()?;
+                }
             }
         }
         Ok(())

@@ -11,6 +11,15 @@ data class ContactItem(
     val lastSeen: String?
 )
 
+data class AttachmentItem(
+    val fileId: String,
+    val fileName: String,
+    val fileSize: Long,
+    val mimeType: String,
+    val isDirectory: Boolean,
+    val localPath: String?
+)
+
 data class MessageItem(
     val id: String,
     val conversationPeer: String,
@@ -18,8 +27,24 @@ data class MessageItem(
     val isMine: Boolean,
     val content: String,
     val timestamp: String,
-    val status: String // Sending, Sent, Delivered, Failed
+    val status: String, // Sending, Sent, Delivered, Failed
+    val attachment: AttachmentItem? = null
 )
+
+data class ConnectionInfo(
+    val kind: String, // "Direct", "Relay", "Unknown"
+    val addr: String? = null,
+    val url: String? = null,
+    val rttMs: Long = 0
+) {
+    fun displayLabel(): String {
+        return when (kind) {
+            "Direct" -> "🟢 Direct (${rttMs}ms)"
+            "Relay" -> "🟡 Relayed (${rttMs}ms)"
+            else -> "⚪ Connecting..."
+        }
+    }
+}
 
 object MessengerBridge {
     init {
@@ -36,6 +61,8 @@ object MessengerBridge {
     external fun getMyNickname(): String
     external fun connectPeer(ticketOrId: String, nickname: String): Boolean
     external fun sendTextMessage(peerKey: String, content: String): Boolean
+    external fun sendFile(peerKey: String, path: String, isDirectory: Boolean): Boolean
+    external fun pingPeer(peerKey: String): Boolean
     external fun sendTyping(peerKey: String, isTyping: Boolean): Boolean
     external fun getContactsJson(): String
     external fun getMessagesJson(peerKey: String): String
@@ -77,6 +104,19 @@ object MessengerBridge {
                 val isMine = dir.equals("Outgoing", ignoreCase = true)
                 val status = obj.optString("status", "Sent")
 
+                var attachment: AttachmentItem? = null
+                if (obj.has("attachment") && !obj.isNull("attachment")) {
+                    val attObj = obj.getJSONObject("attachment")
+                    attachment = AttachmentItem(
+                        fileId = attObj.optString("file_id", ""),
+                        fileName = attObj.optString("file_name", "file"),
+                        fileSize = attObj.optLong("file_size", 0L),
+                        mimeType = attObj.optString("mime_type", ""),
+                        isDirectory = attObj.optBoolean("is_directory", false),
+                        localPath = if (attObj.has("local_path") && !attObj.isNull("local_path")) attObj.getString("local_path") else null
+                    )
+                }
+
                 list.add(
                     MessageItem(
                         id = obj.getString("id"),
@@ -85,7 +125,8 @@ object MessengerBridge {
                         isMine = isMine,
                         content = obj.getString("content"),
                         timestamp = obj.optString("timestamp", ""),
-                        status = status
+                        status = status,
+                        attachment = attachment
                     )
                 )
             }

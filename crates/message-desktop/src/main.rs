@@ -2,8 +2,8 @@
 
 use eframe::egui::{self, Color32, CornerRadius, RichText, Stroke, Vec2};
 use message_core::{
-    Contact, MessageDirection, MessageStatus, MessengerCommand, MessengerEvent, MessengerHandle,
-    StoredMessage,
+    ConnectionType, Contact, FileAttachment, MessageDirection, MessageStatus, MessengerCommand,
+    MessengerEvent, MessengerHandle, StoredMessage, Uuid,
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -24,7 +24,7 @@ fn main() -> eframe::Result {
 
     let handle = rt
         .block_on(async { MessengerHandle::start(None, None).await })
-        .expect("Failed to initialize Iroh Messenger engine");
+        .expect("Failed to initialize Doot Messenger engine");
 
     tracing::info!("Engine initialized. Configuring NativeOptions...");
 
@@ -32,7 +32,7 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([980.0, 700.0])
             .with_min_inner_size([680.0, 480.0])
-            .with_title("Iroh P2P Messenger")
+            .with_title("Doot - Sovereign P2P Messenger (दूत)")
             .with_visible(true),
         ..Default::default()
     };
@@ -40,7 +40,7 @@ fn main() -> eframe::Result {
     tracing::info!("Calling eframe::run_native now...");
 
     eframe::run_native(
-        "Iroh P2P Messenger",
+        "Doot - Sovereign P2P Messenger",
         native_options,
         Box::new(|cc| {
             tracing::info!("app_creator closure called!");
@@ -64,6 +64,7 @@ struct MessengerApp {
 
     // Real-time tracking
     typing_peers: HashMap<String, Instant>,
+    peer_connection_types: HashMap<String, ConnectionType>,
     last_typed_sent: Option<Instant>,
     banner: Option<(String, Instant, bool)>, // (message, expire_at, is_error)
     copied_notification: Option<(String, Instant)>,
@@ -76,6 +77,7 @@ struct MessengerApp {
 
     show_settings_modal: bool,
     edit_nickname: String,
+    transfer_progress: HashMap<Uuid, f32>,
 }
 
 impl MessengerApp {
@@ -106,6 +108,7 @@ impl MessengerApp {
             input_text: String::new(),
             search_query: String::new(),
             typing_peers: HashMap::new(),
+            peer_connection_types: HashMap::new(),
             last_typed_sent: None,
             banner: None,
             copied_notification: None,
@@ -115,6 +118,7 @@ impl MessengerApp {
             new_peer_nickname: String::new(),
             show_settings_modal: false,
             edit_nickname,
+            transfer_progress: HashMap::new(),
         }
     }
 
@@ -152,13 +156,26 @@ impl MessengerApp {
                     self.edit_nickname = my_nickname;
                     self.contacts = contacts;
                 }
-                MessengerEvent::PeerConnected { peer_key, .. } => {
+                MessengerEvent::PeerConnected {
+                    peer_key,
+                    connection_type,
+                    ..
+                } => {
+                    self.peer_connection_types
+                        .insert(peer_key.clone(), connection_type);
                     self.contacts = self.handle.get_contacts();
                     if self.active_peer.as_deref() == Some(&peer_key) {
                         self.set_banner("Connected to peer!".to_string(), false);
                     }
                 }
+                MessengerEvent::ConnectionInfoUpdated {
+                    peer_key,
+                    connection_type,
+                } => {
+                    self.peer_connection_types.insert(peer_key, connection_type);
+                }
                 MessengerEvent::PeerDisconnected { peer_key } => {
+                    self.peer_connection_types.remove(&peer_key);
                     self.typing_peers.remove(&peer_key);
                     self.contacts = self.handle.get_contacts();
                 }
@@ -202,6 +219,34 @@ impl MessengerApp {
                 MessengerEvent::ContactListUpdated { contacts } => {
                     self.contacts = contacts;
                 }
+                MessengerEvent::FileTransferProgress {
+                    file_id,
+                    bytes_transferred,
+                    total_bytes,
+                    ..
+                } => {
+                    let progress = if total_bytes > 0 {
+                        (bytes_transferred as f32 / total_bytes as f32).clamp(0.0, 1.0)
+                    } else {
+                        1.0
+                    };
+                    self.transfer_progress.insert(file_id, progress);
+                }
+                MessengerEvent::FileTransferComplete {
+                    file_id,
+                    local_path,
+                    ..
+                } => {
+                    self.transfer_progress.remove(&file_id);
+                    for m in &mut self.messages {
+                        if m.id == file_id {
+                            if let Some(att) = &mut m.attachment {
+                                att.local_path = Some(local_path.clone());
+                            }
+                            m.status = MessageStatus::Delivered;
+                        }
+                    }
+                }
                 MessengerEvent::Error { context, error } => {
                     self.set_banner(format!("{}: {}", context, error), true);
                 }
@@ -240,12 +285,24 @@ impl eframe::App for MessengerApp {
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     // Logo & App Name
-                    ui.label(
-                        RichText::new("⚡ Iroh P2P Messenger")
-                            .size(17.0)
-                            .strong()
-                            .color(Color32::from_rgb(140, 180, 255)),
-                    );
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new("🕊 Doot")
+                                .size(17.5)
+                                .strong()
+                                .color(Color32::from_rgb(140, 195, 255)),
+                        );
+                        ui.label(
+                            RichText::new("दूत")
+                                .size(13.0)
+                                .color(Color32::from_rgb(180, 205, 240)),
+                        );
+                        ui.label(
+                            RichText::new("• Sovereign P2P")
+                                .size(11.5)
+                                .color(Color32::from_rgb(120, 135, 160)),
+                        );
+                    });
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         // Settings button
@@ -676,14 +733,44 @@ impl MessengerApp {
 
                     // Connection status badge
                     if is_connected {
-                        ui.label(
-                            RichText::new("● Connected (QUIC)")
-                                .size(11.5)
-                                .color(Color32::from_rgb(80, 225, 140)),
-                        );
+                        if let Some(conn_type) = self.peer_connection_types.get(peer_key) {
+                            match conn_type {
+                                ConnectionType::Direct { addr, rtt_ms } => {
+                                    ui.label(
+                                        RichText::new(format!("🟢 Direct P2P (UDP • {}ms)", rtt_ms))
+                                            .size(11.5)
+                                            .strong()
+                                            .color(Color32::from_rgb(80, 235, 140)),
+                                    )
+                                    .on_hover_text(format!("Direct UDP Socket:\n{}", addr));
+                                }
+                                ConnectionType::Relay { url, rtt_ms } => {
+                                    ui.label(
+                                        RichText::new(format!("🟡 Relayed (DERP • {}ms)", rtt_ms))
+                                            .size(11.5)
+                                            .strong()
+                                            .color(Color32::from_rgb(255, 210, 80)),
+                                    )
+                                    .on_hover_text(format!("Relay Server URL:\n{}\nAuto hole-punching attempts direct UDP upgrade in the background.", url));
+                                }
+                                ConnectionType::Unknown => {
+                                    ui.label(
+                                        RichText::new("🟢 Connected (QUIC)")
+                                            .size(11.5)
+                                            .color(Color32::from_rgb(80, 225, 140)),
+                                    );
+                                }
+                            }
+                        } else {
+                            ui.label(
+                                RichText::new("🟢 Connected (QUIC)")
+                                    .size(11.5)
+                                    .color(Color32::from_rgb(80, 225, 140)),
+                            );
+                        }
                     } else {
                         ui.label(
-                            RichText::new("○ Offline")
+                            RichText::new("⚪ Offline")
                                 .size(11.5)
                                 .color(Color32::from_rgb(140, 145, 160)),
                         );
@@ -705,6 +792,17 @@ impl MessengerApp {
             });
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if is_connected
+                    && ui
+                        .button(RichText::new("⚡ Ping").size(12.5))
+                        .on_hover_text("Measure live P2P round-trip time via official iroh-ping")
+                        .clicked()
+                {
+                    let _ = self.handle.send_command(MessengerCommand::PingPeer {
+                        peer_key: peer_key.to_string(),
+                    });
+                }
+
                 if !is_connected
                     && ui
                         .button(RichText::new("🔄 Reconnect").size(12.5))
@@ -719,6 +817,10 @@ impl MessengerApp {
                         nickname: Some(contact_name.clone()),
                     });
                     self.set_banner(format!("Reconnecting to {}...", contact_name), false);
+                }
+
+                if ui.button(RichText::new("📂 Downloads").size(12.5)).on_hover_text("Open downloads folder").clicked() {
+                    open_in_file_manager(&self.handle.downloads_dir().to_string_lossy());
                 }
 
                 if ui.button(RichText::new("📋 Copy Key").size(12.5)).clicked() {
@@ -787,7 +889,7 @@ impl MessengerApp {
         ui.horizontal(|ui| {
             let text_edit = egui::TextEdit::singleline(&mut self.input_text)
                 .hint_text("Type a message... (Press Enter to send)")
-                .desired_width(ui.available_width() - 85.0);
+                .desired_width((ui.available_width() - 230.0).max(120.0));
 
             let response = ui.add(text_edit);
 
@@ -810,6 +912,36 @@ impl MessengerApp {
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 send_msg = true;
                 response.request_focus();
+            }
+
+            // File Attachment Button
+            let file_btn = ui.add_sized(
+                [62.0, 28.0],
+                egui::Button::new(RichText::new("📎 File").size(13.0)),
+            );
+            if file_btn
+                .on_hover_text("Send File (Image, Audio, Video, Document)")
+                .clicked()
+            {
+                if let Some(path) = rfd::FileDialog::new().pick_file() {
+                    let _ = self.handle.send_file(peer_key, path, false);
+                    self.scroll_to_bottom = true;
+                }
+            }
+
+            // Folder Attachment Button
+            let folder_btn = ui.add_sized(
+                [68.0, 28.0],
+                egui::Button::new(RichText::new("📁 Folder").size(13.0)),
+            );
+            if folder_btn
+                .on_hover_text("Send Directory Archive with all subfiles")
+                .clicked()
+            {
+                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    let _ = self.handle.send_file(peer_key, path, true);
+                    self.scroll_to_bottom = true;
+                }
             }
 
             let send_btn = ui.add_sized(
@@ -875,7 +1007,11 @@ impl MessengerApp {
                 bubble_frame.show(ui, |ui| {
                     ui.set_max_width(ui.available_width() * 0.75);
                     ui.vertical(|ui| {
-                        ui.label(RichText::new(&msg.content).size(13.5).color(Color32::WHITE));
+                        if let Some(att) = &msg.attachment {
+                            self.render_attachment_card(ui, msg, att);
+                        } else {
+                            ui.label(RichText::new(&msg.content).size(13.5).color(Color32::WHITE));
+                        }
                         ui.horizontal(|ui| {
                             ui.label(RichText::new(status_str).size(11.0).color(status_color));
                             ui.label(
@@ -899,7 +1035,11 @@ impl MessengerApp {
                                 .color(Color32::from_rgb(130, 190, 255)),
                         );
                         ui.add_space(2.0);
-                        ui.label(RichText::new(&msg.content).size(13.5).color(Color32::WHITE));
+                        if let Some(att) = &msg.attachment {
+                            self.render_attachment_card(ui, msg, att);
+                        } else {
+                            ui.label(RichText::new(&msg.content).size(13.5).color(Color32::WHITE));
+                        }
                         ui.add_space(2.0);
                         ui.label(
                             RichText::new(&time_str)
@@ -910,6 +1050,111 @@ impl MessengerApp {
                 });
             });
         }
+    }
+
+    fn render_attachment_card(&self, ui: &mut egui::Ui, msg: &StoredMessage, att: &FileAttachment) {
+        let (icon, type_label) = if att.is_directory {
+            ("📁", "Folder")
+        } else if att.mime_type.starts_with("image/") {
+            ("🖼", "Image")
+        } else if att.mime_type.starts_with("video/") {
+            ("🎥", "Video")
+        } else if att.mime_type.starts_with("audio/") {
+            ("🎵", "Audio")
+        } else {
+            ("📄", "Document")
+        };
+
+        let card_bg = if msg.direction == MessageDirection::Outgoing {
+            Color32::from_rgb(26, 56, 120)
+        } else {
+            Color32::from_rgb(24, 28, 38)
+        };
+
+        egui::Frame::new()
+            .fill(card_bg)
+            .corner_radius(CornerRadius::same(8))
+            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(50, 60, 80)))
+            .inner_margin(egui::Margin::same(10))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(icon).size(26.0));
+                    ui.vertical(|ui| {
+                        ui.label(
+                            RichText::new(&att.file_name)
+                                .size(13.5)
+                                .strong()
+                                .color(Color32::WHITE),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(format!(
+                                    "{} • {}",
+                                    type_label,
+                                    format_size(att.file_size)
+                                ))
+                                .size(11.0)
+                                .color(Color32::from_rgb(180, 195, 220)),
+                            );
+                            let short_hash = if att.blake3_hash.len() > 10 {
+                                &att.blake3_hash[..10]
+                            } else {
+                                &att.blake3_hash
+                            };
+                            ui.label(
+                                RichText::new(format!("• #{}", short_hash))
+                                    .monospace()
+                                    .size(10.0)
+                                    .color(Color32::from_rgb(120, 140, 170)),
+                            );
+                        });
+                    });
+                });
+
+                // Transfer progress bar
+                if let MessageStatus::Sending = &msg.status {
+                    let progress = self
+                        .transfer_progress
+                        .get(&att.file_id)
+                        .copied()
+                        .unwrap_or(0.0);
+                    ui.add_space(4.0);
+                    ui.add(
+                        egui::ProgressBar::new(progress)
+                            .show_percentage()
+                            .animate(true)
+                            .desired_height(14.0),
+                    );
+                }
+
+                // Action buttons if local file exists or is delivered
+                if let Some(local_path) = &att.local_path {
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        let path = std::path::Path::new(local_path);
+                        if path.exists() {
+                            if ui
+                                .button(RichText::new("▶ Open").size(12.0).color(Color32::WHITE))
+                                .clicked()
+                            {
+                                open_file(local_path);
+                            }
+                            if ui
+                                .button(RichText::new("📁 Show in Folder").size(12.0))
+                                .clicked()
+                            {
+                                open_in_file_manager(local_path);
+                            }
+                        } else {
+                            ui.label(
+                                RichText::new("File moved or removed")
+                                    .size(11.0)
+                                    .color(Color32::from_rgb(180, 110, 110)),
+                            );
+                        }
+                    });
+                }
+            });
     }
 
     fn render_modals(&mut self, ctx: &egui::Context) {
@@ -1066,5 +1311,61 @@ impl MessengerApp {
                     }
                 });
         }
+    }
+}
+
+fn format_size(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.2} MB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else {
+        format!("{} B", bytes)
+    }
+}
+
+fn open_in_file_manager(path_str: &str) {
+    let path = std::path::Path::new(path_str);
+    #[cfg(target_os = "windows")]
+    {
+        if path.is_file() {
+            let _ = std::process::Command::new("explorer")
+                .arg(format!("/select,\"{}\"", path.display()))
+                .spawn();
+        } else {
+            let _ = std::process::Command::new("explorer").arg(path).spawn();
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(path).spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let target = if path.is_file() {
+            path.parent().unwrap_or(path)
+        } else {
+            path
+        };
+        let _ = std::process::Command::new("xdg-open").arg(target).spawn();
+    }
+}
+
+fn open_file(path_str: &str) {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "", path_str])
+            .spawn();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(path_str).spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("xdg-open").arg(path_str).spawn();
     }
 }

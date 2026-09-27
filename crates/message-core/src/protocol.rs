@@ -7,7 +7,9 @@ use std::str::FromStr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
-pub const ALPN_NAME: &[u8] = b"/iroh-messenger/1.0.0";
+pub const DOOT_CHAT_ALPN: &[u8] = b"/doot/chat/1.0.0";
+pub const ALPN_NAME: &[u8] = DOOT_CHAT_ALPN;
+pub const LEGACY_ALPN_NAME: &[u8] = b"/iroh-messenger/1.0.0";
 const TICKET_PREFIX: &str = "iroh-msg:";
 const MAX_MESSAGE_SIZE: usize = 10 * 1024 * 1024; // 10 MB
 
@@ -18,6 +20,19 @@ pub enum WireMessage {
         sender_name: String,
         timestamp_millis: i64,
         content: String,
+    },
+    FileOffer {
+        id: Uuid,
+        sender_name: String,
+        timestamp_millis: i64,
+        file_name: String,
+        file_size: u64,
+        mime_type: String,
+        blake3_hash: String,
+        is_directory: bool,
+    },
+    FileStreamStart {
+        file_id: Uuid,
     },
     Ack {
         message_id: Uuid,
@@ -33,6 +48,8 @@ impl WireMessage {
     pub fn message_id(&self) -> Option<Uuid> {
         match self {
             Self::Text { id, .. } => Some(*id),
+            Self::FileOffer { id, .. } => Some(*id),
+            Self::FileStreamStart { file_id } => Some(*file_id),
             Self::Ack { message_id } => Some(*message_id),
             _ => None,
         }

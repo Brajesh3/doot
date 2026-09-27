@@ -18,10 +18,10 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact_name: message-desktop-windows-x64.exe
+            artifact_name: doot-desktop-windows-x64.exe
             binary_path: target/release/message-desktop.exe
           - os: ubuntu-latest
-            artifact_name: message-desktop-linux-x64
+            artifact_name: doot-desktop-linux-x64
             binary_path: target/release/message-desktop
 
     steps:
@@ -94,7 +94,7 @@ jobs:
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: message-android-arm64.apk
+          name: doot-android-arm64.apk
           path: android-test/app/build/outputs/apk/**/*.apk
 
   publish-release:

@@ -284,3 +284,56 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_markAs
     }
     JNI_FALSE
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendFile(
+    mut env: JNIEnv,
+    _class: JClass,
+    peer_key: JString,
+    path: JString,
+    is_directory: jboolean,
+) -> jboolean {
+    let peer_str: String = match env.get_string(&peer_key) {
+        Ok(s) => s.into(),
+        Err(_) => return JNI_FALSE,
+    };
+    let path_str: String = match env.get_string(&path) {
+        Ok(s) => s.into(),
+        Err(_) => return JNI_FALSE,
+    };
+
+    let lock = ENGINE.lock();
+    if let Some(state) = lock.as_ref() {
+        let res =
+            state
+                .handle
+                .send_file(&peer_str, PathBuf::from(path_str), is_directory == JNI_TRUE);
+        if res.is_ok() {
+            return JNI_TRUE;
+        }
+    }
+    JNI_FALSE
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pingPeer(
+    mut env: JNIEnv,
+    _class: JClass,
+    peer_key: JString,
+) -> jboolean {
+    let peer_str: String = match env.get_string(&peer_key) {
+        Ok(s) => s.into(),
+        Err(_) => return JNI_FALSE,
+    };
+
+    let lock = ENGINE.lock();
+    if let Some(state) = lock.as_ref() {
+        let res = state
+            .handle
+            .send_command(MessengerCommand::PingPeer { peer_key: peer_str });
+        if res.is_ok() {
+            return JNI_TRUE;
+        }
+    }
+    JNI_FALSE
+}

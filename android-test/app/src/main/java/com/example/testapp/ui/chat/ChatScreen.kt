@@ -3,7 +3,12 @@ package com.example.testapp.ui.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import com.example.testapp.messenger.AttachmentItem
+import com.example.testapp.messenger.ConnectionInfo
 import com.example.testapp.messenger.ContactItem
 import com.example.testapp.messenger.MessageItem
 import com.example.testapp.messenger.MessengerUiState
@@ -36,8 +44,22 @@ fun ChatScreen(viewModel: MessengerViewModel) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showConnectDialog by remember { mutableStateOf(false) }
+    var showConnDialog by remember { mutableStateOf(false) }
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            val path = copyUriToCache(context, it)
+            if (path != null) {
+                viewModel.sendFile(path, isDirectory = false)
+            } else {
+                Toast.makeText(context, "Could not read selected file", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // Auto scroll to bottom on new messages
     LaunchedEffect(state.messages.size) {
@@ -52,7 +74,7 @@ fun ChatScreen(viewModel: MessengerViewModel) {
                 title = {
                     Column {
                         Text(
-                            "⚡ Iroh P2P Messenger",
+                            "🕊 Doot (दूत)",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = Color(0xFF93C5FD)
@@ -70,9 +92,9 @@ fun ChatScreen(viewModel: MessengerViewModel) {
                         onClick = {
                             if (state.myTicket.isNotEmpty()) {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("Iroh Ticket", state.myTicket)
+                                val clip = ClipData.newPlainText("Doot Ticket", state.myTicket)
                                 clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "Ticket copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Doot ticket copied to clipboard!", Toast.LENGTH_SHORT).show()
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
@@ -185,6 +207,126 @@ fun ChatScreen(viewModel: MessengerViewModel) {
                 }
             }
 
+            // Active Peer Header Bar (Real-time connection type & RTT)
+            state.activePeer?.let { active ->
+                val connInfo = state.connectionTypes[active.peerKey]
+                val badgeBg = when (connInfo?.kind) {
+                    "Direct" -> Color(0xFF14532D)
+                    "Relay" -> Color(0xFF713F12)
+                    else -> Color(0xFF1E293B)
+                }
+                val badgeText = when (connInfo?.kind) {
+                    "Direct" -> Color(0xFF4ADE80)
+                    "Relay" -> Color(0xFFFDE047)
+                    else -> Color(0xFF94A3B8)
+                }
+
+                Surface(
+                    color = Color(0xFF131D31),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF2563EB)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    active.nickname.take(1).uppercase(),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    active.nickname,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                                val shortKey = if (active.peerKey.length > 12) active.peerKey.take(12) + "…" else active.peerKey
+                                Text(
+                                    shortKey,
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = badgeBg,
+                                modifier = Modifier
+                                    .clickable { showConnDialog = true }
+                                    .padding(end = 6.dp)
+                            ) {
+                                Text(
+                                    connInfo?.displayLabel() ?: "⚪ Connecting...",
+                                    color = badgeText,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            Button(
+                                onClick = {
+                                    viewModel.pingPeer(active.peerKey)
+                                    Toast.makeText(context, "⚡ Pinging peer...", Toast.LENGTH_SHORT).show()
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("⚡ Ping", fontSize = 11.sp, color = Color(0xFF93C5FD))
+                            }
+                        }
+                    }
+                }
+
+                if (showConnDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showConnDialog = false },
+                        title = { Text("Connection Diagnostic", color = Color.White, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Protocol: QUIC / Iroh Multiplexed", color = Color(0xFF93C5FD), fontSize = 13.sp)
+                                Text("Connection Type: ${connInfo?.kind ?: "Unknown"}", color = Color.White, fontSize = 13.sp)
+                                if (!connInfo?.addr.isNullOrBlank()) {
+                                    Text("Direct Socket: ${connInfo.addr}", color = Color(0xFFCBD5E1), fontSize = 12.sp)
+                                }
+                                if (!connInfo?.url.isNullOrBlank()) {
+                                    Text("Relay DERP: ${connInfo.url}", color = Color(0xFFCBD5E1), fontSize = 12.sp)
+                                }
+                                Text("RTT Latency: ${connInfo?.rttMs ?: 0} ms", color = Color(0xFF4ADE80), fontSize = 12.sp)
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showConnDialog = false }) {
+                                Text("Close", color = Color(0xFF60A5FA))
+                            }
+                        },
+                        containerColor = Color(0xFF1E293B)
+                    )
+                }
+            }
+
             // Main Chat Area
             Box(
                 modifier = Modifier
@@ -199,10 +341,10 @@ fun ChatScreen(viewModel: MessengerViewModel) {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("👋 Welcome to Iroh P2P Messenger", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Text("🕊 Welcome to Doot (दूत)", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            "Tap '+ New Chat' above to connect to your desktop app or bot using a shareable ticket.",
+                            "Fast, sovereign, zero-server P2P messenger and file transfer powered by Iroh QUIC.\n\nTap '+ New Chat' above to connect using a shareable ticket.",
                             color = Color(0xFF94A3B8),
                             fontSize = 14.sp,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -217,7 +359,7 @@ fun ChatScreen(viewModel: MessengerViewModel) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(state.messages) { msg ->
-                            MessageBubble(msg)
+                            MessageBubble(msg, context)
                         }
 
                         if (state.isPeerTyping) {
@@ -247,6 +389,16 @@ fun ChatScreen(viewModel: MessengerViewModel) {
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // File attachment button
+                        IconButton(
+                            onClick = { filePickerLauncher.launch("*/*") },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Text("📎", fontSize = 18.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
                         OutlinedTextField(
                             value = inputText,
                             onValueChange = {
@@ -299,7 +451,7 @@ fun ChatScreen(viewModel: MessengerViewModel) {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        "Paste your Desktop App or Bot ticket (iroh-msg:...):",
+                        "Paste your Doot ticket (iroh-msg:...):",
                         color = Color(0xFFCBD5E1),
                         fontSize = 13.sp
                     )
@@ -355,7 +507,7 @@ fun ChatScreen(viewModel: MessengerViewModel) {
 }
 
 @Composable
-fun MessageBubble(msg: MessageItem) {
+fun MessageBubble(msg: MessageItem, context: Context) {
     val alignment = if (msg.isMine) Alignment.End else Alignment.Start
     val bgColor = if (msg.isMine) Color(0xFF2563EB) else Color(0xFF1E293B)
 
@@ -383,6 +535,60 @@ fun MessageBubble(msg: MessageItem) {
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                 }
+
+                // Attachment card if present
+                msg.attachment?.let { att ->
+                    Surface(
+                        color = Color(0x33000000),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp)
+                            .clickable {
+                                if (!att.localPath.isNullOrBlank()) {
+                                    try {
+                                        val file = java.io.File(att.localPath)
+                                        val uri = FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            file
+                                        )
+                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(uri, att.mimeType.ifEmpty { "*/*" })
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(if (att.isDirectory) "📁" else "📄", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    att.fileName,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    formatFileSize(att.fileSize),
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Text(msg.content, color = Color.White, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
@@ -405,4 +611,33 @@ fun MessageBubble(msg: MessageItem) {
             }
         }
     }
+}
+
+fun copyUriToCache(context: Context, uri: Uri): String? {
+    return try {
+        val returnCursor = context.contentResolver.query(uri, null, null, null, null) ?: return null
+        val nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        returnCursor.moveToFirst()
+        val name = returnCursor.getString(nameIndex)
+        returnCursor.close()
+
+        val file = java.io.File(context.cacheDir, name)
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            java.io.FileOutputStream(file).use { output ->
+                input.copyTo(output)
+            }
+        }
+        file.absolutePath
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+fun formatFileSize(bytes: Long): String {
+    if (bytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
+    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
+    val value = bytes / Math.pow(1024.0, digitGroups.toDouble())
+    return "%.1f %s".format(value, units[digitGroups])
 }
