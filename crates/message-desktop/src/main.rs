@@ -239,7 +239,10 @@ fn main() {
 
     tracing::info!("Starting Doot with hardware-accelerated GPU rendering (FemtoVG / OpenGL)...");
 
+    // Restrict background worker thread pools to conserve memory
     let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .max_blocking_threads(4)
         .enable_all()
         .build()
         .expect("Failed to initialize Tokio runtime");
@@ -295,9 +298,24 @@ fn main() {
         .build()
         .expect("Failed to create system tray icon");
 
-    // Intercept Window Close to run in background in System Tray
+    // Intercept Window Close to run in background in System Tray and trim RAM
     app.window().on_close_requested(|| {
-        tracing::info!("Window close requested; hiding to system tray");
+        tracing::info!("Window close requested; hiding to system tray and trimming memory");
+        #[cfg(windows)]
+        {
+            unsafe {
+                #[link(name = "kernel32")]
+                unsafe extern "system" {
+                    fn GetCurrentProcess() -> isize;
+                    fn SetProcessWorkingSetSize(
+                        h_process: isize,
+                        dw_minimum_working_set_size: usize,
+                        dw_maximum_working_set_size: usize,
+                    ) -> i32;
+                }
+                SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
+            }
+        }
         slint::CloseRequestResponse::HideWindow
     });
 
