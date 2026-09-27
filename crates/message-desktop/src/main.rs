@@ -221,13 +221,23 @@ fn create_messages_data(messages: &[StoredMessage]) -> Vec<MessageData> {
 }
 
 fn main() {
+    // Explicitly configure hardware-accelerated GPU rendering (FemtoVG OpenGL via Glutin)
+    if std::env::var("SLINT_BACKEND").is_err() {
+        unsafe {
+            std::env::set_var("SLINT_BACKEND", "femtovg");
+        }
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("message_core=debug".parse().unwrap())
-                .add_directive("message_desktop=debug".parse().unwrap()),
+                .add_directive("message_desktop=debug".parse().unwrap())
+                .add_directive("i_slint_backend_winit=debug".parse().unwrap()),
         )
         .init();
+
+    tracing::info!("Starting Doot with hardware-accelerated GPU rendering (FemtoVG / OpenGL)...");
 
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
