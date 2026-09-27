@@ -1,4 +1,4 @@
-package com.example.testapp.messenger
+package com.brajesh.doot.messenger
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -10,9 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import org.json.JSONObject
+import java.io.File
 
 data class MessengerUiState(
     val isInitialized: Boolean = false,
@@ -24,8 +23,19 @@ data class MessengerUiState(
     val messages: List<MessageItem> = emptyList(),
     val connectionTypes: Map<String, ConnectionInfo> = emptyMap(),
     val isPeerTyping: Boolean = false,
-    val bannerMessage: String? = null
-)
+    val bannerMessage: String? = null,
+    val searchQuery: String = "",
+    val isConnecting: Boolean = false
+) {
+    val filteredContacts: List<ContactItem>
+        get() {
+            if (searchQuery.isBlank()) return contacts
+            return contacts.filter {
+                it.nickname.contains(searchQuery, ignoreCase = true) ||
+                        it.peerKey.contains(searchQuery, ignoreCase = true)
+            }
+        }
+}
 
 class MessengerViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -45,10 +55,7 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
                 val nodeId = MessengerBridge.getMyNodeId()
                 val nick = MessengerBridge.getMyNickname()
                 val contacts = MessengerBridge.parseContacts(MessengerBridge.getContactsJson())
-                val active = contacts.firstOrNull()
-                val msgs = if (active != null) {
-                    MessengerBridge.parseMessages(MessengerBridge.getMessagesJson(active.peerKey))
-                } else emptyList()
+                val msgs = emptyList<MessageItem>()
 
                 _uiState.update {
                     it.copy(
@@ -57,14 +64,14 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
                         myNodeId = nodeId,
                         myNickname = nick,
                         contacts = contacts,
-                        activePeer = active,
+                        activePeer = null,
                         messages = msgs
                     )
                 }
 
                 startEventLoop()
             } else {
-                _uiState.update { it.copy(bannerMessage = "Failed to initialize Iroh engine") }
+                _uiState.update { it.copy(bannerMessage = "Failed to initialize Doot QUIC engine") }
             }
         }
     }
@@ -152,11 +159,11 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
                     refreshContacts = true
                     val isOutgoing = evt.optBoolean("is_outgoing", false)
                     if (!isOutgoing) {
-                        setBanner("File received and verified over Iroh QUIC!")
+                        setBanner("File received and verified over QUIC!")
                     }
                 }
                 type == "Error" || evt.has("Error") -> {
-                    val errMsg = evt.optString("error", "Connection error")
+                    val errMsg = evt.optString("error", "Network event notice")
                     setBanner("Notice: $errMsg")
                 }
                 type == "MessageStatusUpdated" || evt.has("MessageStatusUpdated") -> {
@@ -168,7 +175,9 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         if (refreshContacts) {
             val contacts = MessengerBridge.parseContacts(MessengerBridge.getContactsJson())
             _uiState.update { current ->
-                val active = current.activePeer ?: contacts.firstOrNull()
+                val active = current.activePeer?.let { act ->
+                    contacts.find { it.peerKey == act.peerKey }
+                }
                 current.copy(contacts = contacts, activePeer = active)
             }
             if (_uiState.value.activePeer != null) {
@@ -188,9 +197,13 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
     private fun setBanner(msg: String) {
         _uiState.update { it.copy(bannerMessage = msg) }
         viewModelScope.launch {
-            delay(5000)
+            delay(4000)
             _uiState.update { if (it.bannerMessage == msg) it.copy(bannerMessage = null) else it }
         }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
     }
 
     fun selectPeer(contact: ContactItem) {
@@ -209,25 +222,38 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun connectPeer(ticketOrId: String, nickname: String) {
+    fun clearActivePeer() {
+        _uiState.update { it.copy(activePeer = null) }
+    }
+
+    fun connectPeer(ticketOrId: String, nickname: String, onComplete: ((Boolean) -> Unit)? = null) {
         viewModelScope.launch(Dispatchers.IO) {
             val trimmed = ticketOrId.trim()
-            if (trimmed.isEmpty()) return@launch
+            if (trimmed.isEmpty()) {
+                onComplete?.invoke(false)
+                return@launch
+            }
 
-            setBanner("Connecting to peer...")
+            _uiState.update { it.copy(isConnecting = true) }
+            setBanner("Connecting to peer over QUIC...")
             val ok = MessengerBridge.connectPeer(trimmed, nickname.trim())
             if (ok) {
-                delay(150)
+                delay(200)
                 val contacts = MessengerBridge.parseContacts(MessengerBridge.getContactsJson())
                 val peer = contacts.find { it.nickname == nickname.trim() } ?: contacts.firstOrNull()
                 _uiState.update {
                     it.copy(
                         contacts = contacts,
-                        activePeer = peer ?: it.activePeer
+                        activePeer = peer ?: it.activePeer,
+                        isConnecting = false
                     )
                 }
+                setBanner("Connected successfully!")
+                onComplete?.invoke(true)
             } else {
-                setBanner("Invalid ticket format")
+                _uiState.update { it.copy(isConnecting = false) }
+                setBanner("Unable to parse ticket or establish connection")
+                onComplete?.invoke(false)
             }
         }
     }
@@ -271,6 +297,16 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
     fun pingPeer(peerKey: String) {
         viewModelScope.launch(Dispatchers.IO) {
             MessengerBridge.pingPeer(peerKey)
+        }
+    }
+
+    fun clearCache() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cacheDir = getApplication<Application>().cacheDir
+            cacheDir.listFiles()?.forEach { file ->
+                file.deleteRecursively()
+            }
+            setBanner("App cache cleared successfully")
         }
     }
 

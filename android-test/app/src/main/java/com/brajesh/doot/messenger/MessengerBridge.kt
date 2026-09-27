@@ -1,4 +1,4 @@
-package com.example.testapp.messenger
+package com.brajesh.doot.messenger
 
 import org.json.JSONArray
 import org.json.JSONObject
@@ -37,10 +37,13 @@ data class ConnectionInfo(
     val url: String? = null,
     val rttMs: Long = 0
 ) {
+    fun isDirect(): Boolean = kind.equals("Direct", ignoreCase = true)
+    fun isRelayed(): Boolean = kind.equals("Relay", ignoreCase = true)
+
     fun displayLabel(): String {
-        return when (kind) {
-            "Direct" -> "🟢 Direct (${rttMs}ms)"
-            "Relay" -> "🟡 Relayed (${rttMs}ms)"
+        return when {
+            isDirect() -> "🟢 Direct (${rttMs}ms)"
+            isRelayed() -> "🟡 Relayed (${rttMs}ms)"
             else -> "⚪ Connecting..."
         }
     }

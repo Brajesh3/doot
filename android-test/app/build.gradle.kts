@@ -5,10 +5,10 @@ plugins {
 }
 
 android {
-    namespace = "com.example.testapp"
-    compileSdk = 36
+    namespace = "com.brajesh.doot"
+    compileSdk = 37
     defaultConfig {
-        applicationId = "com.example.testapp"
+        applicationId = "com.brajesh.doot"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -61,6 +61,7 @@ dependencies {
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
+  implementation(libs.androidx.compose.material.icons.extended)
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests
@@ -70,6 +71,7 @@ dependencies {
   // Local tests: jUnit, coroutines, Android runner
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation("org.json:json:20240303")
 
   // Instrumented tests: jUnit rules and runners
   androidTestImplementation(libs.androidx.test.core)

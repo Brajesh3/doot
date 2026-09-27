@@ -13,8 +13,11 @@ struct EngineState {
 
 static ENGINE: Mutex<Option<EngineState>> = Mutex::new(None);
 
+// -----------------------------------------------------------------------------
+// initEngine
+// -----------------------------------------------------------------------------
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_initEngine(
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_initEngine(
     mut env: JNIEnv,
     _class: JClass,
     data_dir: JString,
@@ -63,7 +66,20 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_initEn
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyTicket(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_initEngine(
+    env: JNIEnv,
+    class: JClass,
+    data_dir: JString,
+    nickname: JString,
+) -> jboolean {
+    Java_com_brajesh_doot_messenger_MessengerBridge_initEngine(env, class, data_dir, nickname)
+}
+
+// -----------------------------------------------------------------------------
+// getMyTicket
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_getMyTicket(
     env: JNIEnv,
     _class: JClass,
 ) -> jstring {
@@ -80,7 +96,18 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyT
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyNodeId(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyTicket(
+    env: JNIEnv,
+    class: JClass,
+) -> jstring {
+    Java_com_brajesh_doot_messenger_MessengerBridge_getMyTicket(env, class)
+}
+
+// -----------------------------------------------------------------------------
+// getMyNodeId
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_getMyNodeId(
     env: JNIEnv,
     _class: JClass,
 ) -> jstring {
@@ -97,7 +124,18 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyN
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyNickname(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyNodeId(
+    env: JNIEnv,
+    class: JClass,
+) -> jstring {
+    Java_com_brajesh_doot_messenger_MessengerBridge_getMyNodeId(env, class)
+}
+
+// -----------------------------------------------------------------------------
+// getMyNickname
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_getMyNickname(
     env: JNIEnv,
     _class: JClass,
 ) -> jstring {
@@ -114,7 +152,18 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyN
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_connectPeer(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyNickname(
+    env: JNIEnv,
+    class: JClass,
+) -> jstring {
+    Java_com_brajesh_doot_messenger_MessengerBridge_getMyNickname(env, class)
+}
+
+// -----------------------------------------------------------------------------
+// connectPeer
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_connectPeer(
     mut env: JNIEnv,
     _class: JClass,
     ticket_or_id: JString,
@@ -149,7 +198,20 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_connec
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTextMessage(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_connectPeer(
+    env: JNIEnv,
+    class: JClass,
+    ticket_or_id: JString,
+    nickname: JString,
+) -> jboolean {
+    Java_com_brajesh_doot_messenger_MessengerBridge_connectPeer(env, class, ticket_or_id, nickname)
+}
+
+// -----------------------------------------------------------------------------
+// sendTextMessage
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_sendTextMessage(
     mut env: JNIEnv,
     _class: JClass,
     peer_key: JString,
@@ -180,7 +242,20 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTe
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTyping(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTextMessage(
+    env: JNIEnv,
+    class: JClass,
+    peer_key: JString,
+    content: JString,
+) -> jboolean {
+    Java_com_brajesh_doot_messenger_MessengerBridge_sendTextMessage(env, class, peer_key, content)
+}
+
+// -----------------------------------------------------------------------------
+// sendTyping
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_sendTyping(
     mut env: JNIEnv,
     _class: JClass,
     peer_key: JString,
@@ -205,7 +280,20 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTy
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getContactsJson(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTyping(
+    env: JNIEnv,
+    class: JClass,
+    peer_key: JString,
+    is_typing: jboolean,
+) -> jboolean {
+    Java_com_brajesh_doot_messenger_MessengerBridge_sendTyping(env, class, peer_key, is_typing)
+}
+
+// -----------------------------------------------------------------------------
+// getContactsJson
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_getContactsJson(
     env: JNIEnv,
     _class: JClass,
 ) -> jstring {
@@ -223,7 +311,18 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getCon
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMessagesJson(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getContactsJson(
+    env: JNIEnv,
+    class: JClass,
+) -> jstring {
+    Java_com_brajesh_doot_messenger_MessengerBridge_getContactsJson(env, class)
+}
+
+// -----------------------------------------------------------------------------
+// getMessagesJson
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_getMessagesJson(
     mut env: JNIEnv,
     _class: JClass,
     peer_key: JString,
@@ -247,7 +346,19 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMes
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pollEventsJson(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMessagesJson(
+    env: JNIEnv,
+    class: JClass,
+    peer_key: JString,
+) -> jstring {
+    Java_com_brajesh_doot_messenger_MessengerBridge_getMessagesJson(env, class, peer_key)
+}
+
+// -----------------------------------------------------------------------------
+// pollEventsJson
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_pollEventsJson(
     env: JNIEnv,
     _class: JClass,
 ) -> jstring {
@@ -267,7 +378,18 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pollEv
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_markAsRead(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pollEventsJson(
+    env: JNIEnv,
+    class: JClass,
+) -> jstring {
+    Java_com_brajesh_doot_messenger_MessengerBridge_pollEventsJson(env, class)
+}
+
+// -----------------------------------------------------------------------------
+// markAsRead
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_markAsRead(
     mut env: JNIEnv,
     _class: JClass,
     peer_key: JString,
@@ -286,7 +408,19 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_markAs
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendFile(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_markAsRead(
+    env: JNIEnv,
+    class: JClass,
+    peer_key: JString,
+) -> jboolean {
+    Java_com_brajesh_doot_messenger_MessengerBridge_markAsRead(env, class, peer_key)
+}
+
+// -----------------------------------------------------------------------------
+// sendFile
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_sendFile(
     mut env: JNIEnv,
     _class: JClass,
     peer_key: JString,
@@ -316,7 +450,27 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendFi
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pingPeer(
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendFile(
+    env: JNIEnv,
+    class: JClass,
+    peer_key: JString,
+    path: JString,
+    is_directory: jboolean,
+) -> jboolean {
+    Java_com_brajesh_doot_messenger_MessengerBridge_sendFile(
+        env,
+        class,
+        peer_key,
+        path,
+        is_directory,
+    )
+}
+
+// -----------------------------------------------------------------------------
+// pingPeer
+// -----------------------------------------------------------------------------
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_brajesh_doot_messenger_MessengerBridge_pingPeer(
     mut env: JNIEnv,
     _class: JClass,
     peer_key: JString,
@@ -336,4 +490,13 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pingPe
         }
     }
     JNI_FALSE
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pingPeer(
+    env: JNIEnv,
+    class: JClass,
+    peer_key: JString,
+) -> jboolean {
+    Java_com_brajesh_doot_messenger_MessengerBridge_pingPeer(env, class, peer_key)
 }
