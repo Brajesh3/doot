@@ -118,11 +118,11 @@ async fn test_p2p_messaging_two_nodes() {
     for _ in 0..30 {
         sleep(Duration::from_millis(150)).await;
         let msgs = node_b.get_messages(&node_a.my_node_id);
-        if let Some(m) = msgs.first() {
-            if m.content == "Hey B, this is A over Iroh QUIC!" {
-                message_received = true;
-                break;
-            }
+        if let Some(m) = msgs.first()
+            && m.content == "Hey B, this is A over Iroh QUIC!"
+        {
+            message_received = true;
+            break;
         }
     }
     assert!(
@@ -200,19 +200,18 @@ async fn test_p2p_file_and_folder_transfer_two_nodes() {
     for _ in 0..40 {
         sleep(Duration::from_millis(150)).await;
         let msgs = node_b.get_messages(&node_a.my_node_id);
-        if let Some(m) = msgs.iter().find(|m| m.attachment.is_some()) {
-            if let Some(att) = &m.attachment {
-                if !att.is_directory && att.file_name == "document.pdf" {
-                    if let Some(local_path) = &att.local_path {
-                        let path = std::path::Path::new(local_path);
-                        if path.exists() {
-                            let received_bytes = std::fs::read(path).expect("read received file");
-                            assert_eq!(received_bytes, sample_content);
-                            file_received = true;
-                            break;
-                        }
-                    }
-                }
+        if let Some(m) = msgs.iter().find(|m| m.attachment.is_some())
+            && let Some(att) = &m.attachment
+            && !att.is_directory
+            && att.file_name == "document.pdf"
+            && let Some(local_path) = &att.local_path
+        {
+            let path = std::path::Path::new(local_path);
+            if path.exists() {
+                let received_bytes = std::fs::read(path).expect("read received file");
+                assert_eq!(received_bytes, sample_content);
+                file_received = true;
+                break;
             }
         }
     }
@@ -246,20 +245,18 @@ async fn test_p2p_file_and_folder_transfer_two_nodes() {
         if let Some(m) = msgs
             .iter()
             .find(|m| m.attachment.as_ref().is_some_and(|a| a.is_directory))
+            && let Some(att) = &m.attachment
+            && let Some(local_path) = &att.local_path
         {
-            if let Some(att) = &m.attachment {
-                if let Some(local_path) = &att.local_path {
-                    let folder_path = std::path::Path::new(local_path);
-                    if folder_path.exists()
-                        && folder_path.join("readme.md").exists()
-                        && folder_path.join("assets/images/logo.png").exists()
-                    {
-                        let readme_bytes = std::fs::read(folder_path.join("readme.md")).unwrap();
-                        assert_eq!(readme_bytes, b"# P2P Project Folder Sharing");
-                        folder_received = true;
-                        break;
-                    }
-                }
+            let folder_path = std::path::Path::new(local_path);
+            if folder_path.exists()
+                && folder_path.join("readme.md").exists()
+                && folder_path.join("assets/images/logo.png").exists()
+            {
+                let readme_bytes = std::fs::read(folder_path.join("readme.md")).unwrap();
+                assert_eq!(readme_bytes, b"# P2P Project Folder Sharing");
+                folder_received = true;
+                break;
             }
         }
     }

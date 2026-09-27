@@ -1,6 +1,6 @@
-use jni::objects::{JClass, JString};
-use jni::sys::{jboolean, jstring, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
+use jni::objects::{JClass, JString};
+use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jstring};
 use message_core::{MessengerCommand, MessengerHandle};
 use parking_lot::Mutex;
 use std::path::PathBuf;
@@ -13,7 +13,7 @@ struct EngineState {
 
 static ENGINE: Mutex<Option<EngineState>> = Mutex::new(None);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_initEngine(
     mut env: JNIEnv,
     _class: JClass,
@@ -62,7 +62,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_initEn
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyTicket(
     env: JNIEnv,
     _class: JClass,
@@ -79,7 +79,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyT
         .unwrap_or(std::ptr::null_mut())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyNodeId(
     env: JNIEnv,
     _class: JClass,
@@ -96,7 +96,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyN
         .unwrap_or(std::ptr::null_mut())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyNickname(
     env: JNIEnv,
     _class: JClass,
@@ -113,7 +113,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMyN
         .unwrap_or(std::ptr::null_mut())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_connectPeer(
     mut env: JNIEnv,
     _class: JClass,
@@ -148,7 +148,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_connec
     JNI_FALSE
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTextMessage(
     mut env: JNIEnv,
     _class: JClass,
@@ -179,7 +179,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTe
     JNI_FALSE
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTyping(
     mut env: JNIEnv,
     _class: JClass,
@@ -204,7 +204,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendTy
     JNI_FALSE
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getContactsJson(
     env: JNIEnv,
     _class: JClass,
@@ -222,7 +222,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getCon
         .unwrap_or(std::ptr::null_mut())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMessagesJson(
     mut env: JNIEnv,
     _class: JClass,
@@ -246,7 +246,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_getMes
         .unwrap_or(std::ptr::null_mut())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pollEventsJson(
     env: JNIEnv,
     _class: JClass,
@@ -266,7 +266,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pollEv
         .unwrap_or(std::ptr::null_mut())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_markAsRead(
     mut env: JNIEnv,
     _class: JClass,
@@ -285,7 +285,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_markAs
     JNI_FALSE
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendFile(
     mut env: JNIEnv,
     _class: JClass,
@@ -315,7 +315,7 @@ pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_sendFi
     JNI_FALSE
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_example_testapp_messenger_MessengerBridge_pingPeer(
     mut env: JNIEnv,
     _class: JClass,

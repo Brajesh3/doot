@@ -2,8 +2,8 @@ use crate::events::{ConnectionType, MessengerCommand, MessengerEvent};
 use crate::folder;
 use crate::identity::Identity;
 use crate::protocol::{
-    decode_ticket, encode_ticket, recv_wire_message, send_wire_message, WireMessage,
-    DOOT_CHAT_ALPN, LEGACY_ALPN_NAME,
+    DOOT_CHAT_ALPN, LEGACY_ALPN_NAME, WireMessage, decode_ticket, encode_ticket, recv_wire_message,
+    send_wire_message,
 };
 use crate::store::{
     Contact, FileAttachment, MessageDirection, MessageStatus, Store, StoredMessage,
@@ -12,10 +12,10 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use iroh::endpoint::{Connection, PathEvent};
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
-use iroh::{endpoint::presets, Endpoint, EndpointAddr, PublicKey};
-use iroh_blobs::store::mem::MemStore;
+use iroh::{Endpoint, EndpointAddr, PublicKey, endpoint::presets};
 use iroh_blobs::BlobsProtocol;
-use iroh_gossip::net::{Gossip, GOSSIP_ALPN};
+use iroh_blobs::store::mem::MemStore;
+use iroh_gossip::net::{GOSSIP_ALPN, Gossip};
 use iroh_ping::Ping;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -25,7 +25,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 use tokio::time::timeout;
 use uuid::Uuid;
 
@@ -892,20 +892,20 @@ async fn handle_connect_peer(
     });
 
     // Check if already active
-    if let Some(conn) = active_connections.read().await.get(&peer_pk) {
-        if conn.close_reason().is_none() {
-            let conn_type = get_connection_type(conn);
-            let direct_addr = match &conn_type {
-                ConnectionType::Direct { addr, .. } => Some(addr.clone()),
-                _ => None,
-            };
-            let _ = event_tx.send(MessengerEvent::PeerConnected {
-                peer_key: peer_key_str,
-                direct_addr,
-                connection_type: conn_type,
-            });
-            return;
-        }
+    if let Some(conn) = active_connections.read().await.get(&peer_pk)
+        && conn.close_reason().is_none()
+    {
+        let conn_type = get_connection_type(conn);
+        let direct_addr = match &conn_type {
+            ConnectionType::Direct { addr, .. } => Some(addr.clone()),
+            _ => None,
+        };
+        let _ = event_tx.send(MessengerEvent::PeerConnected {
+            peer_key: peer_key_str,
+            direct_addr,
+            connection_type: conn_type,
+        });
+        return;
     }
 
     // Add contact immediately so the UI reflects the pending peer
@@ -1008,10 +1008,10 @@ async fn get_or_dial_connection(
     peer_pk: PublicKey,
 ) -> Result<Connection> {
     // 1. Check existing connection
-    if let Some(conn) = active_connections.read().await.get(&peer_pk) {
-        if conn.close_reason().is_none() {
-            return Ok(conn.clone());
-        }
+    if let Some(conn) = active_connections.read().await.get(&peer_pk)
+        && conn.close_reason().is_none()
+    {
+        return Ok(conn.clone());
     }
 
     // 2. Need to dial
@@ -1471,13 +1471,12 @@ async fn handle_send_typing(
     peer_key: String,
     is_typing: bool,
 ) {
-    if let Ok(peer_pk) = PublicKey::from_str(&peer_key) {
-        if let Some(conn) = active_connections.read().await.get(&peer_pk) {
-            if let Ok((mut send, _)) = conn.open_bi().await {
-                let _ = send_wire_message(&mut send, &WireMessage::Typing { is_typing }).await;
-                let _ = send.finish();
-            }
-        }
+    if let Ok(peer_pk) = PublicKey::from_str(&peer_key)
+        && let Some(conn) = active_connections.read().await.get(&peer_pk)
+        && let Ok((mut send, _)) = conn.open_bi().await
+    {
+        let _ = send_wire_message(&mut send, &WireMessage::Typing { is_typing }).await;
+        let _ = send.finish();
     }
 }
 

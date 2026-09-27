@@ -210,10 +210,10 @@ impl MessengerApp {
                     message_id,
                     status,
                 } => {
-                    if self.active_peer.as_deref() == Some(&peer_key) {
-                        if let Some(msg) = self.messages.iter_mut().find(|m| m.id == message_id) {
-                            msg.status = status;
-                        }
+                    if self.active_peer.as_deref() == Some(&peer_key)
+                        && let Some(msg) = self.messages.iter_mut().find(|m| m.id == message_id)
+                    {
+                        msg.status = status;
                     }
                 }
                 MessengerEvent::ContactListUpdated { contacts } => {
@@ -863,16 +863,16 @@ impl MessengerApp {
                 }
 
                 // Peer typing indicator
-                if let Some(expire) = self.typing_peers.get(peer_key) {
-                    if *expire > Instant::now() {
-                        ui.horizontal(|ui| {
-                            ui.label(
-                                RichText::new(format!("✏ {} is typing...", contact_name))
-                                    .size(12.0)
-                                    .color(Color32::from_rgb(130, 180, 255)),
-                            );
-                        });
-                    }
+                if let Some(expire) = self.typing_peers.get(peer_key)
+                    && *expire > Instant::now()
+                {
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new(format!("✏ {} is typing...", contact_name))
+                                .size(12.0)
+                                .color(Color32::from_rgb(130, 180, 255)),
+                        );
+                    });
                 }
 
                 if self.scroll_to_bottom {
@@ -922,11 +922,10 @@ impl MessengerApp {
             if file_btn
                 .on_hover_text("Send File (Image, Audio, Video, Document)")
                 .clicked()
+                && let Some(path) = rfd::FileDialog::new().pick_file()
             {
-                if let Some(path) = rfd::FileDialog::new().pick_file() {
-                    let _ = self.handle.send_file(peer_key, path, false);
-                    self.scroll_to_bottom = true;
-                }
+                let _ = self.handle.send_file(peer_key, path, false);
+                self.scroll_to_bottom = true;
             }
 
             // Folder Attachment Button
@@ -937,11 +936,10 @@ impl MessengerApp {
             if folder_btn
                 .on_hover_text("Send Directory Archive with all subfiles")
                 .clicked()
+                && let Some(path) = rfd::FileDialog::new().pick_folder()
             {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    let _ = self.handle.send_file(peer_key, path, true);
-                    self.scroll_to_bottom = true;
-                }
+                let _ = self.handle.send_file(peer_key, path, true);
+                self.scroll_to_bottom = true;
             }
 
             let send_btn = ui.add_sized(

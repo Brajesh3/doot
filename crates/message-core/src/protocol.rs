@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64;
 use iroh::{EndpointAddr, PublicKey};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -107,17 +107,17 @@ pub fn decode_ticket(input: &str) -> Result<EndpointAddr> {
     }
 
     // Case 2: Raw JSON
-    if trimmed.starts_with('{') {
-        if let Ok(addr) = serde_json::from_str::<EndpointAddr>(trimmed) {
-            return Ok(addr);
-        }
+    if trimmed.starts_with('{')
+        && let Ok(addr) = serde_json::from_str::<EndpointAddr>(trimmed)
+    {
+        return Ok(addr);
     }
 
     // Case 3: Raw Base64 without prefix
-    if let Ok(json_bytes) = BASE64.decode(trimmed) {
-        if let Ok(addr) = serde_json::from_slice::<EndpointAddr>(&json_bytes) {
-            return Ok(addr);
-        }
+    if let Ok(json_bytes) = BASE64.decode(trimmed)
+        && let Ok(addr) = serde_json::from_slice::<EndpointAddr>(&json_bytes)
+    {
+        return Ok(addr);
     }
 
     // Case 4: Raw PublicKey string (e.g. Hex or z-base32)

@@ -187,11 +187,11 @@ impl Store {
         message_id: Uuid,
         status: MessageStatus,
     ) -> Result<()> {
-        if let Some(msgs) = self.messages.get_mut(peer_key) {
-            if let Some(msg) = msgs.iter_mut().find(|m| m.id == message_id) {
-                msg.status = status;
-                self.save()?;
-            }
+        if let Some(msgs) = self.messages.get_mut(peer_key)
+            && let Some(msg) = msgs.iter_mut().find(|m| m.id == message_id)
+        {
+            msg.status = status;
+            self.save()?;
         }
         Ok(())
     }
@@ -202,23 +202,22 @@ impl Store {
         message_id: Uuid,
         local_path: String,
     ) -> Result<()> {
-        if let Some(msgs) = self.messages.get_mut(peer_key) {
-            if let Some(msg) = msgs.iter_mut().find(|m| m.id == message_id) {
-                if let Some(att) = &mut msg.attachment {
-                    att.local_path = Some(local_path);
-                    self.save()?;
-                }
-            }
+        if let Some(msgs) = self.messages.get_mut(peer_key)
+            && let Some(msg) = msgs.iter_mut().find(|m| m.id == message_id)
+            && let Some(att) = &mut msg.attachment
+        {
+            att.local_path = Some(local_path);
+            self.save()?;
         }
         Ok(())
     }
 
     pub fn mark_as_read(&mut self, peer_key: &str) -> Result<()> {
-        if let Some(contact) = self.contacts.get_mut(peer_key) {
-            if contact.unread_count > 0 {
-                contact.unread_count = 0;
-                self.save()?;
-            }
+        if let Some(contact) = self.contacts.get_mut(peer_key)
+            && contact.unread_count > 0
+        {
+            contact.unread_count = 0;
+            self.save()?;
         }
         Ok(())
     }
