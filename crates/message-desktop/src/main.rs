@@ -1,5 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 slint::include_modules!();
 
 use message_core::{
@@ -220,6 +223,22 @@ fn create_messages_data(messages: &[StoredMessage]) -> Vec<MessageData> {
         .collect()
 }
 
+#[cfg(windows)]
+fn trim_process_working_set() {
+    unsafe {
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn GetCurrentProcess() -> isize;
+            fn SetProcessWorkingSetSize(
+                h_process: isize,
+                dw_minimum_working_set_size: usize,
+                dw_maximum_working_set_size: usize,
+            ) -> i32;
+        }
+        let _ = SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
+    }
+}
+
 fn main() {
     // Explicitly configure hardware-accelerated GPU rendering (FemtoVG OpenGL via Glutin)
     if std::env::var("SLINT_BACKEND").is_err() {
@@ -239,10 +258,11 @@ fn main() {
 
     tracing::info!("Starting Doot with hardware-accelerated GPU rendering (FemtoVG / OpenGL)...");
 
-    // Restrict background worker thread pools to conserve memory
+    // Restrict background worker thread pools to 1 thread and 1MB stack to conserve memory
     let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .max_blocking_threads(4)
+        .worker_threads(1)
+        .max_blocking_threads(2)
+        .thread_stack_size(1024 * 1024)
         .enable_all()
         .build()
         .expect("Failed to initialize Tokio runtime");
@@ -302,20 +322,7 @@ fn main() {
     app.window().on_close_requested(|| {
         tracing::info!("Window close requested; hiding to system tray and trimming memory");
         #[cfg(windows)]
-        {
-            unsafe {
-                #[link(name = "kernel32")]
-                unsafe extern "system" {
-                    fn GetCurrentProcess() -> isize;
-                    fn SetProcessWorkingSetSize(
-                        h_process: isize,
-                        dw_minimum_working_set_size: usize,
-                        dw_maximum_working_set_size: usize,
-                    ) -> i32;
-                }
-                SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
-            }
-        }
+        trim_process_working_set();
         slint::CloseRequestResponse::HideWindow
     });
 
@@ -860,6 +867,21 @@ fn main() {
 
     tracing::info!("Showing Slint AppWindow...");
     app.show().expect("Failed to show AppWindow");
+
+    // Schedule a post-launch RAM trim after initial shader compilation and font loading
+    let _trim_timer = {
+        let timer = slint::Timer::default();
+        timer.start(
+            slint::TimerMode::SingleShot,
+            Duration::from_millis(1500),
+            move || {
+                tracing::info!("Post-launch RAM trim: flushing one-time driver setup memory");
+                #[cfg(windows)]
+                trim_process_working_set();
+            },
+        );
+        timer
+    };
 
     tracing::info!("Running Slint desktop application event loop...");
     app.run().expect("Failed to run Slint event loop");
