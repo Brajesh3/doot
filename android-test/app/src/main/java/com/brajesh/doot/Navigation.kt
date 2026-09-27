@@ -43,6 +43,7 @@ enum class DootScreen {
     ABOUT
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DootApp(
     viewModel: MessengerViewModel,
@@ -103,22 +104,27 @@ fun DootApp(
             }
         }
     ) { innerPadding ->
+        val spatialOffsetSpec = MaterialTheme.motionScheme.slowSpatialSpec<androidx.compose.ui.unit.IntOffset>()
+        val effectsSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+
         AnimatedContent(
             targetState = currentScreen,
             transitionSpec = {
                 if (targetState == DootScreen.CHAT) {
-                    slideInHorizontally { width -> width } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> -width } + fadeOut()
+                    (slideInHorizontally(animationSpec = spatialOffsetSpec) { width -> width } + fadeIn(animationSpec = effectsSpec))
+                        .togetherWith(slideOutHorizontally(animationSpec = spatialOffsetSpec) { width -> -width / 3 } + fadeOut(animationSpec = effectsSpec))
                 } else if (initialState == DootScreen.CHAT) {
-                    slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> width } + fadeOut()
+                    (slideInHorizontally(animationSpec = spatialOffsetSpec) { width -> -width / 3 } + fadeIn(animationSpec = effectsSpec))
+                        .togetherWith(slideOutHorizontally(animationSpec = spatialOffsetSpec) { width -> width } + fadeOut(animationSpec = effectsSpec))
                 } else {
-                    fadeIn() togetherWith fadeOut()
+                    fadeIn(animationSpec = effectsSpec)
+                        .togetherWith(fadeOut(animationSpec = effectsSpec))
                 }
             },
             label = "screen_transition",
             modifier = Modifier
                 .fillMaxSize()
+
                 .padding(bottom = innerPadding.calculateBottomPadding())
         ) { screen ->
             when (screen) {

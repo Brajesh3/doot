@@ -14,17 +14,23 @@ import androidx.compose.ui.platform.LocalContext
 private val DarkColorScheme = darkColorScheme(
     primary = DootBluePrimaryDark,
     onPrimary = DootBlueOnPrimaryContainer,
-    primaryContainer = Color(0xFF004A77),
+    primaryContainer = Color(0xFF0842A0),
     onPrimaryContainer = DootBluePrimaryContainer,
     secondary = DootSecondaryDark,
     onSecondary = DootOnSecondaryContainer,
     secondaryContainer = Color(0xFF004D73),
     onSecondaryContainer = DootSecondaryContainer,
     tertiary = DootTertiaryDark,
+    onTertiary = Color(0xFF003919),
+    tertiaryContainer = Color(0xFF0F5223),
+    onTertiaryContainer = Color(0xFFC4EED0),
     background = DootBackgroundDark,
     surface = DootSurfaceDark,
+    surfaceContainerLowest = Color(0xFF0C0E12),
+    surfaceContainerLow = Color(0xFF14161C),
     surfaceContainer = DootSurfaceContainerDark,
-    surfaceContainerHigh = DootSurfaceContainerHighDark
+    surfaceContainerHigh = DootSurfaceContainerHighDark,
+    surfaceContainerHighest = Color(0xFF33353A)
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -33,15 +39,23 @@ private val LightColorScheme = lightColorScheme(
     primaryContainer = DootBluePrimaryContainer,
     onPrimaryContainer = DootBlueOnPrimaryContainer,
     secondary = DootSecondary,
+    onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = DootSecondaryContainer,
     onSecondaryContainer = DootOnSecondaryContainer,
     tertiary = DootTertiary,
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = DootTertiaryContainer,
+    onTertiaryContainer = Color(0xFF07210E),
     background = DootBackgroundLight,
     surface = DootSurfaceLight,
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF7F9FC),
     surfaceContainer = DootSurfaceContainerLight,
-    surfaceContainerHigh = DootSurfaceContainerHighLight
+    surfaceContainerHigh = DootSurfaceContainerHighLight,
+    surfaceContainerHighest = Color(0xFFE1E6EE)
 )
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DootTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -60,6 +74,8 @@ fun DootTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        motionScheme = androidx.compose.material3.MotionScheme.expressive(),
         content = content
     )
 }
+

@@ -37,7 +37,10 @@ import com.brajesh.doot.messenger.ContactItem
 import com.brajesh.doot.messenger.MessengerUiState
 import com.brajesh.doot.messenger.MessengerViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+import com.brajesh.doot.ui.components.expressivePressScale
+import androidx.compose.foundation.interaction.MutableInteractionSource
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HomeScreen(
     viewModel: MessengerViewModel,
@@ -48,6 +51,7 @@ fun HomeScreen(
     val context = LocalContext.current
     var showNewChatDialog by remember { mutableStateOf(false) }
     var showIdentitySheet by remember { mutableStateOf(false) }
+    var showFabMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -129,9 +133,10 @@ fun HomeScreen(
                 // Banner alert if present
                 AnimatedVisibility(
                     visible = state.bannerMessage != null,
-                    enter = fadeIn(),
-                    exit = fadeOut()
+                    enter = fadeIn(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
+                    exit = fadeOut(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec())
                 ) {
+
                     state.bannerMessage?.let { banner ->
                         Card(
                             modifier = Modifier
@@ -172,14 +177,37 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showNewChatDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "New Chat") },
-                text = { Text("New Chat") },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = RoundedCornerShape(18.dp)
-            )
+            FloatingActionButtonMenu(
+                expanded = showFabMenu,
+                button = {
+                    ToggleFloatingActionButton(
+                        checked = showFabMenu,
+                        onCheckedChange = { showFabMenu = !showFabMenu }
+                    ) {
+                        Icon(
+                            imageVector = if (showFabMenu) Icons.Default.Close else Icons.Default.Add,
+                            contentDescription = if (showFabMenu) "Close menu" else "New chat options"
+                        )
+                    }
+                }
+            ) {
+                FloatingActionButtonMenuItem(
+                    onClick = {
+                        showFabMenu = false
+                        showNewChatDialog = true
+                    },
+                    text = { Text("Connect Peer") },
+                    icon = { Icon(Icons.Outlined.Person, contentDescription = null) }
+                )
+                FloatingActionButtonMenuItem(
+                    onClick = {
+                        showFabMenu = false
+                        showIdentitySheet = true
+                    },
+                    text = { Text("My Sovereign Ticket") },
+                    icon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) }
+                )
+            }
         }
     ) { innerPadding ->
         val contacts = state.filteredContacts
@@ -366,18 +394,24 @@ fun HomeScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ConversationItemCard(
     contact: ContactItem,
     connInfo: com.brajesh.doot.messenger.ConnectionInfo?,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         color = Color.Transparent,
-        modifier = Modifier.fillMaxWidth()
+        interactionSource = interactionSource,
+        modifier = Modifier
+            .fillMaxWidth()
+            .expressivePressScale(interactionSource, pressedScale = 0.97f)
     ) {
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -478,6 +512,7 @@ private fun ConversationItemCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ConnectPeerDialog(
     isConnecting: Boolean,
@@ -535,15 +570,14 @@ fun ConnectPeerDialog(
             Button(
                 onClick = { onConnect(ticketText, nicknameText) },
                 enabled = ticketText.isNotBlank() && !isConnecting,
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 if (isConnecting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
+                    LoadingIndicator(
+                        modifier = Modifier.size(18.dp),
                         color = MaterialTheme.colorScheme.onPrimary
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Connecting...")
                 } else {
                     Text("Connect & Chat")
