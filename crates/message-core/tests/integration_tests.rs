@@ -12,10 +12,15 @@ fn test_ticket_roundtrip() {
     let addr = iroh::EndpointAddr::from(pk);
 
     let ticket = encode_ticket(&addr).expect("encode failed");
-    assert!(ticket.starts_with("iroh-msg:"));
+    assert!(ticket.starts_with("doot:"));
 
     let decoded = decode_ticket(&ticket).expect("decode failed");
     assert_eq!(decoded.id, pk);
+
+    // Test legacy iroh-msg: prefix backward compatibility
+    let legacy_ticket = ticket.replace("doot:", "iroh-msg:");
+    let legacy_decoded = decode_ticket(&legacy_ticket).expect("legacy decode failed");
+    assert_eq!(legacy_decoded.id, pk);
 
     // Test raw hex decoding
     let raw_pk_str = pk.to_string();
@@ -31,7 +36,7 @@ fn test_store_operations() {
     let contact = Contact {
         public_key: "abc123def456".to_string(),
         nickname: "Alice".to_string(),
-        ticket: Some("iroh-msg:xyz".to_string()),
+        ticket: Some("doot:xyz".to_string()),
         last_seen: None,
         unread_count: 0,
         last_message_preview: None,

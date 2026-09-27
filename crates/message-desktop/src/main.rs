@@ -1173,7 +1173,7 @@ impl MessengerApp {
                     ui.add_sized(
                         [ui.available_width(), 60.0],
                         egui::TextEdit::multiline(&mut self.new_peer_ticket)
-                            .hint_text("Paste 'iroh-msg:...' ticket or hex public key"),
+                            .hint_text("Paste 'doot:...' ticket or hex public key"),
                     );
 
                     ui.add_space(8.0);

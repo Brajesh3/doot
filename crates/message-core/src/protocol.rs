@@ -10,7 +10,8 @@ use uuid::Uuid;
 pub const DOOT_CHAT_ALPN: &[u8] = b"/doot/chat/1.0.0";
 pub const ALPN_NAME: &[u8] = DOOT_CHAT_ALPN;
 pub const LEGACY_ALPN_NAME: &[u8] = b"/iroh-messenger/1.0.0";
-const TICKET_PREFIX: &str = "iroh-msg:";
+pub const TICKET_PREFIX: &str = "doot:";
+pub const LEGACY_TICKET_PREFIX: &str = "iroh-msg:";
 const MAX_MESSAGE_SIZE: usize = 10 * 1024 * 1024; // 10 MB
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -98,8 +99,11 @@ pub fn decode_ticket(input: &str) -> Result<EndpointAddr> {
         anyhow::bail!("Input ticket/address is empty");
     }
 
-    // Case 1: Prefixed ticket string
-    if let Some(rest) = trimmed.strip_prefix(TICKET_PREFIX) {
+    // Case 1: Prefixed ticket string (doot: or legacy iroh-msg:)
+    if let Some(rest) = trimmed
+        .strip_prefix(TICKET_PREFIX)
+        .or_else(|| trimmed.strip_prefix(LEGACY_TICKET_PREFIX))
+    {
         let json_bytes = BASE64.decode(rest).context("Invalid Base64 in ticket")?;
         let addr: EndpointAddr = serde_json::from_slice(&json_bytes)
             .context("Invalid endpoint address payload in ticket")?;
@@ -126,6 +130,6 @@ pub fn decode_ticket(input: &str) -> Result<EndpointAddr> {
     }
 
     anyhow::bail!(
-        "Unable to parse ticket: expected 'iroh-msg:<base64>', JSON EndpointAddr, or valid Public Key"
+        "Unable to parse ticket: expected 'doot:<base64>', JSON EndpointAddr, or valid Public Key"
     )
 }

@@ -27,8 +27,7 @@ impl Identity {
         let data_dir = match custom_dir {
             Some(d) => d,
             None => {
-                if let Some(proj_dirs) = ProjectDirs::from("com", "irohmessenger", "iroh-messenger")
-                {
+                if let Some(proj_dirs) = ProjectDirs::from("org", "doot", "doot") {
                     proj_dirs.data_dir().to_path_buf()
                 } else {
                     PathBuf::from("./data")

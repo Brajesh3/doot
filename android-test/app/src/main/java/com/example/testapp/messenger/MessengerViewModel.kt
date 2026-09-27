@@ -18,7 +18,7 @@ data class MessengerUiState(
     val isInitialized: Boolean = false,
     val myTicket: String = "",
     val myNodeId: String = "",
-    val myNickname: String = "Doot Android",
+    val myNickname: String = "Doot Mobile 📱",
     val contacts: List<ContactItem> = emptyList(),
     val activePeer: ContactItem? = null,
     val messages: List<MessageItem> = emptyList(),
@@ -38,8 +38,8 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun initializeEngine() {
         viewModelScope.launch(Dispatchers.IO) {
-            val dataDir = getApplication<Application>().filesDir.resolve("iroh_messenger").absolutePath
-            val success = MessengerBridge.initEngine(dataDir, "Android Phone 📱")
+            val dataDir = getApplication<Application>().filesDir.resolve("doot").absolutePath
+            val success = MessengerBridge.initEngine(dataDir, "Doot Mobile 📱")
             if (success) {
                 val ticket = MessengerBridge.getMyTicket()
                 val nodeId = MessengerBridge.getMyNodeId()

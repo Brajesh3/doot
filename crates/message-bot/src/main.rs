@@ -5,19 +5,19 @@ use tokio::time::sleep;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("\n🚀 Initializing Iroh Test Peer Bot...");
+    println!("\n🕊 Initializing Doot Echo Bot (दूत)...");
 
-    let temp_dir = std::env::temp_dir().join("iroh_bot_profile");
-    let handle = MessengerHandle::start(Some(temp_dir), Some("Echo Bot 🤖".into())).await?;
+    let temp_dir = std::env::temp_dir().join("doot_bot_profile");
+    let handle = MessengerHandle::start(Some(temp_dir), Some("Doot Echo Bot 🕊".into())).await?;
 
     println!("\n=======================================================");
-    println!("🤖 BOT NODE ID : {}", handle.my_node_id);
-    println!("🤖 BOT TICKET  : {}", handle.my_ticket);
+    println!("🕊 BOT NODE ID : {}", handle.my_node_id);
+    println!("🕊 BOT TICKET  : {}", handle.my_ticket);
     println!("=======================================================\n");
     println!("👉 STEP 1: Copy the BOT TICKET above.");
-    println!("👉 STEP 2: Open your Iroh Desktop Messenger window.");
+    println!("👉 STEP 2: Open your Doot Desktop or Android app.");
     println!("👉 STEP 3: Click '+ New Chat', paste this ticket, and click 'Connect & Chat'.");
-    println!("👉 STEP 4: Send any message! The bot will receive it over Iroh QUIC and reply.\n");
+    println!("👉 STEP 4: Send any message! The bot will receive it over Doot QUIC and reply.\n");
     println!("Listening for peer connections and messages...\n");
 
     loop {
@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
 
                     // Automatically echo reply
                     let reply = format!(
-                        "Echo from Bot: '{}'! Direct P2P QUIC confirmed 🚀",
+                        "Echo from Doot: '{}'! Direct P2P QUIC confirmed 🕊",
                         message.content
                     );
                     println!("📤 [REPLYING] \"{}\"", reply);
@@ -83,7 +83,7 @@ async fn main() -> Result<()> {
                     if !is_outgoing {
                         println!("🎉 [FILE SAVED] Stored at: {}", local_path);
                         let reply = format!(
-                            "Echo Bot: Received and verified your file/folder at '{}' over Iroh QUIC! 🚀",
+                            "Doot Echo Bot: Received and verified your file/folder at '{}' over QUIC! 🕊",
                             local_path
                         );
                         let _ = handle.send_command(MessengerCommand::SendTextMessage {
