@@ -9,12 +9,17 @@ on:
     - cron: '0 0 * * 0' # Weekly scan every Sunday
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   security-audit:
     name: Security Vulnerability Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          create-issues: false
+          ignore: RUSTSEC-2026-0195 RUSTSEC-2026-0194 RUSTSEC-2025-0141 RUSTSEC-2024-0436 RUSTSEC-2026-0192

@@ -17,5 +17,6 @@ captures/
 .idea/
 *.iml
 
-# Logs
+# Logs & Screenshots
 *.log
+*.png
