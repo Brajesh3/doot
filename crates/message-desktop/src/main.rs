@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 slint::include_modules!();
 
@@ -829,6 +829,9 @@ fn main() {
             std::thread::sleep(Duration::from_millis(60));
         }
     });
+
+    tracing::info!("Showing Slint AppWindow...");
+    app.show().expect("Failed to show AppWindow");
 
     tracing::info!("Running Slint desktop application event loop...");
     app.run().expect("Failed to run Slint event loop");
