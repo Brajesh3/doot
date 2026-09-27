@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -18,11 +18,15 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact_name: doot-desktop-windows-x64.exe
-            binary_path: target/release/message-desktop.exe
+            desktop_artifact: doot-desktop-windows-x64.exe
+            bot_artifact: doot-bot-windows-x64.exe
+            desktop_path: target/release/message-desktop.exe
+            bot_path: target/release/message-bot.exe
           - os: ubuntu-24.04
-            artifact_name: doot-desktop-linux-x64
-            binary_path: target/release/message-desktop
+            desktop_artifact: doot-desktop-linux-x64
+            bot_artifact: doot-bot-linux-x64
+            desktop_path: target/release/message-desktop
+            bot_path: target/release/message-bot
 
     steps:
       - uses: actions/checkout@v4
@@ -37,19 +41,22 @@ jobs:
           sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev pkg-config
 
       - name: Build Desktop Release
-        run: cargo build --release -p message-desktop
+        run: |
+          cargo build --release -p message-desktop
+          cargo build --release -p message-bot
 
-      - name: Prepare Binary
+      - name: Prepare Binaries
         shell: bash
         run: |
           mkdir -p dist
-          cp "${{ matrix.binary_path }}" "dist/${{ matrix.artifact_name }}"
+          cp "${{ matrix.desktop_path }}" "dist/${{ matrix.desktop_artifact }}"
+          cp "${{ matrix.bot_path }}" "dist/${{ matrix.bot_artifact }}"
 
-      - name: Upload Desktop Artifact
+      - name: Upload Desktop Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.artifact_name }}
+          name: doot-desktop-${{ matrix.os }}
+          path: dist/*
 
   build-android:
     name: Build Android APK
@@ -87,17 +94,23 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Android Release APK
+      - name: Build Android APK
         working-directory: ./android-test
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleRelease || ./gradlew assembleDebug
+          ./gradlew assembleDebug
+
+      - name: Prepare APK Asset
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp android-test/app/build/outputs/apk/debug/app-debug.apk dist/doot-android-debug.apk
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: doot-android-arm64.apk
-          path: android-test/app/build/outputs/apk/**/*.apk
+          name: doot-android-debug
+          path: dist/doot-android-debug.apk
 
   publish-release:
     name: Publish GitHub Release
@@ -111,11 +124,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-assets
+          merge-multiple: true
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release-assets/**/*
+          files: release-assets/*
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref, '-') }}
