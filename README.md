@@ -140,6 +140,13 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 ---
 
+## AI Disclaimer
+
+> [!NOTE]
+> This project, including its codebase, architecture, tests, and documentation, was developed with the assistance of AI pair-programming tools under human direction, review, and verification.
+
+---
+
 ## License
 
 This project is licensed under the MIT License.
