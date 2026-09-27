@@ -157,9 +157,18 @@ fn create_contacts_data(
                 .map(|t| t.format("%H:%M").to_string())
                 .unwrap_or_default();
 
+            let initial = c
+                .nickname
+                .chars()
+                .next()
+                .or_else(|| c.public_key.chars().next())
+                .map(|ch| ch.to_uppercase().to_string())
+                .unwrap_or_else(|| "P".to_string());
+
             ContactData {
                 peer_key: c.public_key.clone().into(),
                 nickname: c.nickname.clone().into(),
+                initial: initial.into(),
                 last_message: c.last_message_preview.clone().unwrap_or_default().into(),
                 timestamp: timestamp.into(),
                 unread_count: c.unread_count as i32,
@@ -242,6 +251,13 @@ fn main() {
     let app = AppWindow::new().expect("Failed to initialize Slint AppWindow");
 
     app.set_my_nickname(handle.my_nickname.clone().into());
+    let my_init = handle
+        .my_nickname
+        .chars()
+        .next()
+        .map(|ch| ch.to_uppercase().to_string())
+        .unwrap_or_else(|| "D".to_string());
+    app.set_my_initial(my_init.into());
     app.set_my_node_id(handle.my_node_id.clone().into());
     app.set_my_ticket(handle.my_ticket.clone().into());
 
@@ -390,11 +406,17 @@ fn main() {
         };
 
         if let Some(app) = app_weak_select.upgrade() {
+            let initial = nickname
+                .chars()
+                .next()
+                .map(|ch| ch.to_uppercase().to_string())
+                .unwrap_or_else(|| "P".to_string());
             app.set_messages(ModelRc::new(VecModel::from(m_data)));
             app.set_contacts(ModelRc::new(VecModel::from(c_data)));
             app.set_selected_contact_index(idx);
             app.set_active_peer_key(peer_key.into());
             app.set_active_peer_nick(nickname.into());
+            app.set_active_peer_initial(initial.into());
             app.set_active_conn_info(conn_info_str.into());
             app.set_active_is_direct(is_direct);
         }
@@ -596,7 +618,13 @@ fn main() {
                 nickname: clean.clone(),
             });
             if let Some(app) = app_weak_nick.upgrade() {
+                let init = clean
+                    .chars()
+                    .next()
+                    .map(|ch| ch.to_uppercase().to_string())
+                    .unwrap_or_else(|| "D".to_string());
                 app.set_my_nickname(clean.into());
+                app.set_my_initial(init.into());
                 app.set_toast_banner("Public nickname updated!".into());
                 app.set_show_toast(true);
             }

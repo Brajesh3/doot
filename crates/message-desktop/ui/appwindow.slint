@@ -1,8 +1,9 @@
-import { Button, LineEdit, ScrollView, ListView } from "std-widgets.slint";
+import { ListView } from "std-widgets.slint";
 
 export struct ContactData {
     peer_key: string,
     nickname: string,
+    initial: string,
     last_message: string,
     timestamp: string,
     unread_count: int,
@@ -25,20 +26,77 @@ export struct MessageData {
     local_path: string,
 }
 
+component IconButton inherits Rectangle {
+    in-out property <image> icon;
+    in-out property <color> icon-color: #94a3b8;
+    in-out property <color> icon-hover-color: #f1f5f9;
+    in-out property <color> bg-color: #20242e;
+    in-out property <color> bg-hover-color: #2a303d;
+    in-out property <length> icon-size: 18px;
+    callback clicked <=> touch.clicked;
+
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    background: touch.has-hover ? bg-hover-color : bg-color;
+
+    Image {
+        width: root.icon-size;
+        height: root.icon-size;
+        source: root.icon;
+        colorize: touch.has-hover ? root.icon-hover-color : root.icon-color;
+        image-fit: contain;
+    }
+
+    touch := TouchArea {}
+}
+
+component CustomButton inherits Rectangle {
+    in-out property <string> text;
+    in-out property <bool> primary: false;
+    callback clicked <=> touch.clicked;
+
+    height: 38px;
+    border-radius: 19px;
+    background: root.primary ?
+        (touch.has-hover ? #1d4ed8 : #2563eb) :
+        (touch.has-hover ? #2e384d : #222938);
+    border-width: root.primary ? 0 : 1px;
+    border-color: #3b4557;
+
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        alignment: center;
+
+        Text {
+            text: root.text;
+            font-size: 13px;
+            font-weight: 600;
+            color: root.primary ? #ffffff : #cbd5e1;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    touch := TouchArea {}
+}
+
 export component AppWindow inherits Window {
-    title: "Doot - Sovereign P2P Messenger (दूत)";
-    min-width: 800px;
-    min-height: 580px;
-    preferred-width: 1040px;
+    title: "Doot - Sovereign P2P Messenger";
+    min-width: 860px;
+    min-height: 600px;
+    preferred-width: 1060px;
     preferred-height: 720px;
-    background: #111318;
-    default-font-family: "Segoe UI, Roboto, sans-serif";
+    background: #0f1117;
+    default-font-family: "Segoe UI";
 
     // Properties
     in-out property <[ContactData]> contacts: [];
     in-out property <int> selected_contact_index: -1;
     in-out property <string> active_peer_key: "";
     in-out property <string> active_peer_nick: "";
+    in-out property <string> active_peer_initial: "P";
     in-out property <string> active_conn_info: "";
     in-out property <bool> active_is_direct: false;
     in-out property <bool> is_peer_typing: false;
@@ -46,6 +104,7 @@ export component AppWindow inherits Window {
     in-out property <string> search_query: "";
     in-out property <string> input_text: "";
     in-out property <string> my_nickname: "Doot User";
+    in-out property <string> my_initial: "D";
     in-out property <string> my_node_id: "";
     in-out property <string> my_ticket: "";
     in-out property <string> toast_banner: "";
@@ -70,19 +129,18 @@ export component AppWindow inherits Window {
     callback copy_my_node_id();
     callback close_toast();
 
-    // Main Horizontal Split: Sidebar + Chat Area
+    // Main Layout: Left Sidebar + Chat Panel
     HorizontalLayout {
         spacing: 0;
 
-        // LEFT SIDEBAR
+        // LEFT SIDEBAR (Width: 320px)
         Rectangle {
             width: 320px;
-            background: #171a21;
-            border-width: 0;
+            background: #161922;
 
             VerticalLayout {
-                padding: 12px;
-                spacing: 10px;
+                padding: 14px;
+                spacing: 12px;
 
                 // Sidebar Header
                 HorizontalLayout {
@@ -90,37 +148,36 @@ export component AppWindow inherits Window {
                     height: 40px;
 
                     HorizontalLayout {
-                        spacing: 8px;
-                        alignment: start;
+                        spacing: 10px;
+                        alignment: center;
 
-                        Text {
-                            text: "🕊";
-                            font-size: 22px;
-                            vertical-alignment: center;
+                        Image {
+                            width: 24px;
+                            height: 24px;
+                            source: @image-url("icons/logo.svg");
+                            image-fit: contain;
                         }
 
                         Text {
                             text: "Doot";
-                            font-size: 20px;
+                            font-size: 19px;
                             font-weight: 700;
-                            color: #e3e8f2;
+                            color: #f8fafc;
                             vertical-alignment: center;
                         }
 
-                        // Online tag
                         Rectangle {
-                            background: #132d20;
+                            background: #143324;
                             border-radius: 6px;
-                            border-color: #27834a;
+                            border-color: #22c55e;
                             border-width: 1px;
                             height: 20px;
-                            width: 60px;
-                            y: 10px;
+                            width: 62px;
 
                             Text {
                                 text: "QUIC P2P";
                                 font-size: 10px;
-                                font-weight: 600;
+                                font-weight: 700;
                                 color: #4ade80;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
@@ -128,52 +185,24 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Action buttons
                     HorizontalLayout {
-                        spacing: 6px;
-                        alignment: end;
+                        spacing: 8px;
+                        alignment: center;
 
-                        Rectangle {
-                            width: 32px;
-                            height: 32px;
-                            border-radius: 16px;
-                            background: connect_touch.has-hover ? #2a303d : #20242e;
-
-                            Text {
-                                text: "+";
-                                font-size: 20px;
-                                font-weight: 600;
-                                color: #78a9ff;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-
-                            connect_touch := TouchArea {
-                                clicked => {
-                                    root.show_connect_dialog = true;
-                                }
+                        IconButton {
+                            icon: @image-url("icons/plus.svg");
+                            icon-size: 16px;
+                            clicked => {
+                                root.show_connect_dialog = true;
                             }
                         }
 
-                        Rectangle {
-                            width: 32px;
-                            height: 32px;
-                            border-radius: 16px;
-                            background: settings_touch.has-hover ? #2a303d : #20242e;
-
-                            Text {
-                                text: "⚙";
-                                font-size: 16px;
-                                color: #a6b2c6;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-
-                            settings_touch := TouchArea {
-                                clicked => {
-                                    root.settings_nickname_input = root.my_nickname;
-                                    root.show_settings_dialog = true;
-                                }
+                        IconButton {
+                            icon: @image-url("icons/settings.svg");
+                            icon-size: 16px;
+                            clicked => {
+                                root.settings_nickname_input = root.my_nickname;
+                                root.show_settings_dialog = true;
                             }
                         }
                     }
@@ -181,76 +210,92 @@ export component AppWindow inherits Window {
 
                 // Search Bar
                 Rectangle {
-                    height: 38px;
-                    border-radius: 19px;
-                    background: #20242f;
+                    height: 40px;
+                    border-radius: 20px;
+                    background: #1f2430;
+                    border-width: 1px;
+                    border-color: search_input.has-focus ? #3b82f6 : #2a313f;
 
                     HorizontalLayout {
                         padding-left: 14px;
                         padding-right: 14px;
-                        spacing: 8px;
+                        spacing: 10px;
+                        alignment: center;
 
-                        Text {
-                            text: "🔍";
+                        Image {
+                            width: 16px;
+                            height: 16px;
+                            source: @image-url("icons/search.svg");
+                            colorize: #64748b;
+                            image-fit: contain;
+                        }
+
+                        search_input := TextInput {
+                            text <=> root.search_query;
+                            color: #f1f5f9;
                             font-size: 13px;
                             vertical-alignment: center;
+                            single-line: true;
                         }
+                    }
 
-                        search_input := LineEdit {
-                            placeholder-text: "Search contacts...";
-                            text <=> root.search_query;
-                            horizontal-stretch: 1;
-                        }
+                    if root.search_query == "" && !search_input.has-focus: Text {
+                        x: 40px;
+                        text: "Search contacts...";
+                        color: #64748b;
+                        font-size: 13px;
+                        vertical-alignment: center;
                     }
                 }
 
-                // Contact List
+                // Contact Cards List
                 ListView {
                     horizontal-stretch: 1;
                     vertical-stretch: 1;
 
                     for contact[idx] in root.contacts: Rectangle {
-                        height: 64px;
+                        height: 68px;
                         border-radius: 12px;
-                        background: idx == root.selected_contact_index ? #232c3d : (item_touch.has-hover ? #1c212b : transparent);
+                        background: idx == root.selected_contact_index ? #232b3b : (item_touch.has-hover ? #1c222e : transparent);
 
                         HorizontalLayout {
-                            padding: 8px;
+                            padding: 10px;
                             spacing: 12px;
+                            alignment: center;
 
-                            // Avatar Circle
+                            // Avatar Circle with Status Dot
                             Rectangle {
                                 width: 44px;
                                 height: 44px;
                                 border-radius: 22px;
-                                background: idx == root.selected_contact_index ? #1d4ed8 : #283244;
+                                background: idx == root.selected_contact_index ? #2563eb : #293244;
 
                                 Text {
-                                    text: contact.nickname != "" ? contact.nickname : "P";
-                                    font-size: 16px;
+                                    text: contact.initial;
+                                    font-size: 17px;
                                     font-weight: 700;
-                                    color: #f1f5f9;
+                                    color: #f8fafc;
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
                                 }
 
-                                // Status Dot
+                                // Status Dot in bottom right corner
                                 Rectangle {
                                     width: 12px;
                                     height: 12px;
                                     border-radius: 6px;
                                     x: 32px;
                                     y: 32px;
-                                    background: contact.is_direct ? #22c55e : (contact.is_online ? #f59e0b : #64748b);
+                                    background: contact.is_direct ? #22c55e : (contact.is_online ? #eab308 : #64748b);
                                     border-width: 2px;
-                                    border-color: #171a21;
+                                    border-color: #161922;
                                 }
                             }
 
                             // Contact info
                             VerticalLayout {
                                 alignment: center;
-                                spacing: 2px;
+                                spacing: 3px;
                                 horizontal-stretch: 1;
 
                                 HorizontalLayout {
@@ -260,7 +305,7 @@ export component AppWindow inherits Window {
                                         text: contact.nickname;
                                         font-size: 14px;
                                         font-weight: 600;
-                                        color: #e2e8f0;
+                                        color: idx == root.selected_contact_index ? #ffffff : #e2e8f0;
                                         overflow: elide;
                                     }
 
@@ -272,12 +317,21 @@ export component AppWindow inherits Window {
                                 }
 
                                 HorizontalLayout {
+                                    spacing: 6px;
                                     alignment: space-between;
 
-                                    Text {
-                                        text: contact.is_typing ? "typing..." : contact.last_message;
+                                    if contact.is_typing: Text {
+                                        text: "typing...";
                                         font-size: 12px;
-                                        color: contact.is_typing ? #38bdf8 : #94a3b8;
+                                        color: #38bdf8;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+
+                                    if !contact.is_typing: Text {
+                                        text: contact.last_message != "" ? contact.last_message : "Peer ready";
+                                        font-size: 12px;
+                                        color: #94a3b8;
                                         overflow: elide;
                                         horizontal-stretch: 1;
                                     }
@@ -286,15 +340,19 @@ export component AppWindow inherits Window {
                                         background: #3b82f6;
                                         border-radius: 9px;
                                         height: 18px;
-                                        width: 22px;
+                                        min-width: 20px;
 
-                                        Text {
-                                            text: contact.unread_count;
-                                            font-size: 11px;
-                                            font-weight: 700;
-                                            color: #ffffff;
-                                            horizontal-alignment: center;
-                                            vertical-alignment: center;
+                                        HorizontalLayout {
+                                            padding-left: 6px;
+                                            padding-right: 6px;
+                                            Text {
+                                                text: contact.unread_count;
+                                                font-size: 11px;
+                                                font-weight: 700;
+                                                color: #ffffff;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
                                         }
                                     }
                                 }
@@ -309,72 +367,67 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                // Footer My Identity
+                // Sidebar Footer: Sovereign Identity Card
                 Rectangle {
-                    height: 52px;
-                    border-radius: 10px;
-                    background: #1c202a;
+                    height: 56px;
+                    border-radius: 12px;
+                    background: #1c212d;
+                    border-width: 1px;
+                    border-color: #272f3f;
 
                     HorizontalLayout {
-                        padding: 8px;
+                        padding-left: 10px;
+                        padding-right: 10px;
                         spacing: 10px;
-                        alignment: space-between;
-
-                        HorizontalLayout {
-                            spacing: 8px;
-                            alignment: start;
-
-                            Rectangle {
-                                width: 34px;
-                                height: 34px;
-                                border-radius: 17px;
-                                background: #1e3a5f;
-
-                                Text {
-                                    text: "👤";
-                                    font-size: 16px;
-                                    horizontal-alignment: center;
-                                    vertical-alignment: center;
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                spacing: 1px;
-
-                                Text {
-                                    text: root.my_nickname;
-                                    font-size: 13px;
-                                    font-weight: 600;
-                                    color: #f1f5f9;
-                                }
-
-                                Text {
-                                    text: root.my_node_id;
-                                    font-size: 10px;
-                                    color: #64748b;
-                                    overflow: elide;
-                                }
-                            }
-                        }
+                        alignment: center;
 
                         Rectangle {
-                            width: 32px;
-                            height: 32px;
-                            border-radius: 8px;
-                            background: copy_ticket_touch.has-hover ? #2e384d : #252c3a;
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 18px;
+                            background: #1e3a5f;
 
                             Text {
-                                text: "📋";
-                                font-size: 13px;
+                                text: root.my_initial;
+                                font-size: 15px;
+                                font-weight: 700;
+                                color: #60a5fa;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
+                        }
 
-                            copy_ticket_touch := TouchArea {
-                                clicked => {
-                                    root.copy_my_ticket();
-                                }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 1px;
+                            horizontal-stretch: 1;
+
+                            Text {
+                                text: root.my_nickname;
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: #f1f5f9;
+                                overflow: elide;
+                            }
+
+                            Text {
+                                text: root.my_node_id;
+                                font-size: 10px;
+                                color: #64748b;
+                                overflow: elide;
+                            }
+                        }
+
+                        IconButton {
+                            icon: @image-url("icons/copy.svg");
+                            icon-size: 15px;
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 8px;
+                            bg-color: #252d3d;
+                            bg-hover-color: #313a4e;
+                            clicked => {
+                                root.copy_my_ticket();
                             }
                         }
                     }
@@ -382,18 +435,27 @@ export component AppWindow inherits Window {
             }
         }
 
+        // Vertical divider
+        Rectangle {
+            width: 1px;
+            background: #212633;
+        }
+
         // RIGHT CHAT AREA
         Rectangle {
             horizontal-stretch: 1;
-            background: #111318;
+            background: #0f1117;
 
+            // Empty State (No contact selected)
             if root.active_peer_key == "": VerticalLayout {
                 alignment: center;
                 spacing: 16px;
 
-                Text {
-                    text: "🕊";
-                    font-size: 64px;
+                Image {
+                    width: 72px;
+                    height: 72px;
+                    source: @image-url("icons/logo.svg");
+                    image-fit: contain;
                     horizontal-alignment: center;
                 }
 
@@ -406,28 +468,18 @@ export component AppWindow inherits Window {
                 }
 
                 Text {
-                    text: "Sovereign P2P Encrypted Messenger over QUIC";
+                    text: "Sovereign P2P Encrypted Messenger over Direct QUIC";
                     font-size: 14px;
                     color: #94a3b8;
                     horizontal-alignment: center;
                 }
 
-                Rectangle {
-                    width: 180px;
-                    height: 40px;
-                    border-radius: 20px;
-                    background: empty_connect_touch.has-hover ? #1d4ed8 : #2563eb;
+                HorizontalLayout {
+                    alignment: center;
 
-                    Text {
+                    CustomButton {
                         text: "Connect with Peer";
-                        font-size: 14px;
-                        font-weight: 600;
-                        color: #ffffff;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-
-                    empty_connect_touch := TouchArea {
+                        primary: true;
                         clicked => {
                             root.show_connect_dialog = true;
                         }
@@ -435,33 +487,33 @@ export component AppWindow inherits Window {
                 }
             }
 
+            // Active Chat Conversation
             if root.active_peer_key != "": VerticalLayout {
                 spacing: 0;
 
                 // Chat Top Bar
                 Rectangle {
-                    height: 60px;
-                    background: #171a21;
+                    height: 64px;
+                    background: #161922;
 
                     HorizontalLayout {
-                        padding-left: 16px;
-                        padding-right: 16px;
+                        padding-left: 20px;
+                        padding-right: 20px;
                         alignment: space-between;
 
                         HorizontalLayout {
                             spacing: 12px;
-                            alignment: start;
+                            alignment: center;
 
                             Rectangle {
-                                width: 40px;
-                                height: 40px;
-                                border-radius: 20px;
+                                width: 42px;
+                                height: 42px;
+                                border-radius: 21px;
                                 background: #2563eb;
-                                y: 10px;
 
                                 Text {
-                                    text: root.active_peer_nick != "" ? root.active_peer_nick : "P";
-                                    font-size: 18px;
+                                    text: root.active_peer_initial;
+                                    font-size: 17px;
                                     font-weight: 700;
                                     color: #ffffff;
                                     horizontal-alignment: center;
@@ -482,13 +534,13 @@ export component AppWindow inherits Window {
 
                                 HorizontalLayout {
                                     spacing: 6px;
+                                    alignment: center;
 
                                     Rectangle {
                                         width: 8px;
                                         height: 8px;
                                         border-radius: 4px;
-                                        background: root.active_is_direct ? #22c55e : #f59e0b;
-                                        y: 4px;
+                                        background: root.active_is_direct ? #22c55e : #eab308;
                                     }
 
                                     Text {
@@ -500,54 +552,34 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        // Header Actions
+                        // Header Actions (Ping & Copy Key)
                         HorizontalLayout {
                             spacing: 8px;
-                            alignment: end;
+                            alignment: center;
 
-                            Rectangle {
-                                width: 36px;
-                                height: 36px;
-                                border-radius: 18px;
-                                background: ping_touch.has-hover ? #2e384d : #202633;
-                                y: 12px;
-
-                                Text {
-                                    text: "⚡";
-                                    font-size: 16px;
-                                    horizontal-alignment: center;
-                                    vertical-alignment: center;
-                                }
-
-                                ping_touch := TouchArea {
-                                    clicked => {
-                                        root.ping_active_peer();
-                                    }
+                            IconButton {
+                                icon: @image-url("icons/bolt.svg");
+                                icon-size: 16px;
+                                clicked => {
+                                    root.ping_active_peer();
                                 }
                             }
 
-                            Rectangle {
-                                width: 36px;
-                                height: 36px;
-                                border-radius: 18px;
-                                background: copy_peer_touch.has-hover ? #2e384d : #202633;
-                                y: 12px;
-
-                                Text {
-                                    text: "🔑";
-                                    font-size: 15px;
-                                    horizontal-alignment: center;
-                                    vertical-alignment: center;
-                                }
-
-                                copy_peer_touch := TouchArea {
-                                    clicked => {
-                                        root.copy_active_peer_key();
-                                    }
+                            IconButton {
+                                icon: @image-url("icons/key.svg");
+                                icon-size: 16px;
+                                clicked => {
+                                    root.copy_active_peer_key();
                                 }
                             }
                         }
                     }
+                }
+
+                // Top bar divider
+                Rectangle {
+                    height: 1px;
+                    background: #212633;
                 }
 
                 // Chat Message Stream
@@ -557,43 +589,56 @@ export component AppWindow inherits Window {
 
                     for msg in root.messages: Rectangle {
                         background: transparent;
-                        min-height: 48px;
 
                         HorizontalLayout {
-                            padding-left: 16px;
-                            padding-right: 16px;
-                            padding-top: 4px;
-                            padding-bottom: 4px;
+                            padding-left: 20px;
+                            padding-right: 20px;
+                            padding-top: 5px;
+                            padding-bottom: 5px;
                             alignment: msg.is_mine ? end : start;
 
                             Rectangle {
-                                border-radius: 14px;
-                                background: msg.is_mine ? #1e3a8a : #1f242f;
+                                border-radius: 16px;
+                                background: msg.is_mine ? #1e3a8a : #1c212d;
                                 max-width: 520px;
 
                                 VerticalLayout {
                                     padding: 10px;
-                                    spacing: 4px;
+                                    padding-left: 14px;
+                                    padding-right: 14px;
+                                    spacing: 5px;
 
+                                    // File Attachment Card
                                     if msg.has_attachment: Rectangle {
-                                        height: 48px;
-                                        border-radius: 8px;
-                                        background: #14213d;
+                                        height: 50px;
+                                        border-radius: 10px;
+                                        background: msg.is_mine ? #172554 : #141720;
+                                        border-width: 1px;
+                                        border-color: msg.is_mine ? #2563eb : #2b3342;
 
                                         HorizontalLayout {
                                             padding: 8px;
-                                            spacing: 8px;
-                                            alignment: start;
+                                            spacing: 10px;
+                                            alignment: center;
 
-                                            Text {
-                                                text: msg.is_directory ? "📁" : "📄";
-                                                font-size: 20px;
-                                                vertical-alignment: center;
+                                            Rectangle {
+                                                width: 34px;
+                                                height: 34px;
+                                                border-radius: 8px;
+                                                background: #1e3a5f;
+
+                                                Image {
+                                                    width: 18px;
+                                                    height: 18px;
+                                                    source: msg.is_directory ? @image-url("icons/folder.svg") : @image-url("icons/file.svg");
+                                                    colorize: #60a5fa;
+                                                    image-fit: contain;
+                                                }
                                             }
 
                                             VerticalLayout {
                                                 alignment: center;
-                                                spacing: 2px;
+                                                spacing: 1px;
                                                 horizontal-stretch: 1;
 
                                                 Text {
@@ -619,6 +664,7 @@ export component AppWindow inherits Window {
                                         }
                                     }
 
+                                    // Message text content
                                     if msg.content != "": Text {
                                         text: msg.content;
                                         font-size: 14px;
@@ -626,20 +672,25 @@ export component AppWindow inherits Window {
                                         wrap: word-wrap;
                                     }
 
+                                    // Message Footer: Timestamp and Delivery Status
                                     HorizontalLayout {
                                         alignment: end;
-                                        spacing: 4px;
+                                        spacing: 6px;
 
                                         Text {
                                             text: msg.timestamp;
                                             font-size: 10px;
                                             color: msg.is_mine ? #93c5fd : #64748b;
+                                            vertical-alignment: center;
                                         }
 
-                                        if msg.is_mine: Text {
-                                            text: msg.status == "Delivered" ? "✓✓" : (msg.status == "Sent" ? "✓" : "⏳");
-                                            font-size: 11px;
-                                            color: #93c5fd;
+                                        if msg.is_mine: Image {
+                                            width: 14px;
+                                            height: 14px;
+                                            source: msg.status == "Delivered" ? @image-url("icons/check-all.svg") :
+                                                   (msg.status == "Sent" ? @image-url("icons/check.svg") : @image-url("icons/clock.svg"));
+                                            colorize: msg.status == "Delivered" ? #38bdf8 : #93c5fd;
+                                            image-fit: contain;
                                         }
                                     }
                                 }
@@ -648,20 +699,21 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                // Peer is typing row
+                // Peer is typing banner
                 if root.is_peer_typing: Rectangle {
-                    height: 24px;
+                    height: 26px;
                     background: transparent;
 
                     HorizontalLayout {
-                        padding-left: 20px;
-                        spacing: 6px;
+                        padding-left: 24px;
+                        spacing: 8px;
+                        alignment: center;
 
-                        Text {
-                            text: "●";
-                            font-size: 10px;
-                            color: #38bdf8;
-                            vertical-alignment: center;
+                        Rectangle {
+                            width: 6px;
+                            height: 6px;
+                            border-radius: 3px;
+                            background: #38bdf8;
                         }
 
                         Text {
@@ -673,55 +725,54 @@ export component AppWindow inherits Window {
                     }
                 }
 
+                // Bottom input divider
+                Rectangle {
+                    height: 1px;
+                    background: #212633;
+                }
+
                 // Chat Input Area
                 Rectangle {
-                    height: 64px;
-                    background: #171a21;
+                    height: 68px;
+                    background: #161922;
 
                     HorizontalLayout {
-                        padding-left: 12px;
-                        padding-right: 12px;
-                        padding-top: 8px;
-                        padding-bottom: 8px;
-                        spacing: 8px;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        spacing: 10px;
                         alignment: center;
 
-                        // Attach button
-                        Rectangle {
-                            width: 44px;
-                            height: 44px;
-                            border-radius: 22px;
-                            background: attach_touch.has-hover ? #2e384d : #222733;
-
-                            Text {
-                                text: "📎";
-                                font-size: 18px;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-
-                            attach_touch := TouchArea {
-                                clicked => {
-                                    root.attach_file();
-                                }
+                        // Attach File Button
+                        IconButton {
+                            icon: @image-url("icons/attach.svg");
+                            icon-size: 18px;
+                            width: 42px;
+                            height: 42px;
+                            border-radius: 21px;
+                            clicked => {
+                                root.attach_file();
                             }
                         }
 
-                        // Message Input
+                        // Message Text Input
                         Rectangle {
                             horizontal-stretch: 1;
                             height: 44px;
                             border-radius: 22px;
-                            background: #20242f;
+                            background: #1f2530;
+                            border-width: 1px;
+                            border-color: chat_input.has-focus ? #3b82f6 : #2a3242;
 
                             HorizontalLayout {
-                                padding-left: 16px;
-                                padding-right: 16px;
+                                padding-left: 18px;
+                                padding-right: 18px;
 
-                                msg_input := LineEdit {
-                                    placeholder-text: "Type an encrypted message...";
+                                chat_input := TextInput {
                                     text <=> root.input_text;
-                                    horizontal-stretch: 1;
+                                    color: #f8fafc;
+                                    font-size: 14px;
+                                    vertical-alignment: center;
+                                    single-line: true;
                                     accepted => {
                                         if (root.input_text != "") {
                                             root.send_message(root.input_text);
@@ -733,6 +784,14 @@ export component AppWindow inherits Window {
                                     }
                                 }
                             }
+
+                            if root.input_text == "" && !chat_input.has-focus: Text {
+                                x: 18px;
+                                text: "Type an encrypted message...";
+                                color: #64748b;
+                                font-size: 14px;
+                                vertical-alignment: center;
+                            }
                         }
 
                         // Send Button
@@ -740,14 +799,14 @@ export component AppWindow inherits Window {
                             width: 44px;
                             height: 44px;
                             border-radius: 22px;
-                            background: root.input_text != "" ? (send_touch.has-hover ? #1d4ed8 : #2563eb) : #28303f;
+                            background: root.input_text != "" ? (send_touch.has-hover ? #1d4ed8 : #2563eb) : #242c3b;
 
-                            Text {
-                                text: "➤";
-                                font-size: 18px;
-                                color: root.input_text != "" ? #ffffff : #64748b;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
+                            Image {
+                                width: 18px;
+                                height: 18px;
+                                source: @image-url("icons/send.svg");
+                                colorize: root.input_text != "" ? #ffffff : #64748b;
+                                image-fit: contain;
                             }
 
                             send_touch := TouchArea {
@@ -767,19 +826,19 @@ export component AppWindow inherits Window {
 
     // CONNECT PEER MODAL DIALOG
     if root.show_connect_dialog: Rectangle {
-        background: #000000aa;
+        background: #000000b0;
 
         TouchArea {
-            // Prevent click-through
+            // Modal backdrop interceptor
         }
 
         Rectangle {
-            width: 460px;
-            height: 300px;
+            width: 480px;
+            height: 310px;
             border-radius: 16px;
-            background: #1e232d;
+            background: #1b202c;
             border-width: 1px;
-            border-color: #333d4d;
+            border-color: #2f384a;
 
             VerticalLayout {
                 padding: 24px;
@@ -795,59 +854,100 @@ export component AppWindow inherits Window {
                         color: #f1f5f9;
                     }
 
-                    Rectangle {
-                        width: 28px;
-                        height: 28px;
-                        border-radius: 14px;
-                        background: close_conn_touch.has-hover ? #3b4556 : transparent;
-
-                        Text {
-                            text: "✕";
-                            font-size: 14px;
-                            color: #94a3b8;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-
-                        close_conn_touch := TouchArea {
-                            clicked => {
-                                root.show_connect_dialog = false;
-                            }
+                    IconButton {
+                        icon: @image-url("icons/close.svg");
+                        icon-size: 14px;
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 15px;
+                        bg-color: transparent;
+                        bg-hover-color: #2b3445;
+                        clicked => {
+                            root.show_connect_dialog = false;
                         }
                     }
                 }
 
                 Text {
-                    text: "Paste peer's shareable ticket (doot:...) to establish a sovereign direct connection:";
-                    font-size: 12px;
+                    text: "Paste peer's shareable ticket (doot:...) to establish a sovereign connection:";
+                    font-size: 13px;
                     color: #94a3b8;
                     wrap: word-wrap;
                 }
 
-                LineEdit {
-                    placeholder-text: "doot:... ticket";
-                    text <=> root.connect_ticket_input;
-                    height: 38px;
+                // Ticket input
+                Rectangle {
+                    height: 42px;
+                    border-radius: 8px;
+                    background: #151922;
+                    border-width: 1px;
+                    border-color: ticket_in.has-focus ? #3b82f6 : #28303f;
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+
+                        ticket_in := TextInput {
+                            text <=> root.connect_ticket_input;
+                            color: #f8fafc;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            single-line: true;
+                        }
+                    }
+
+                    if root.connect_ticket_input == "" && !ticket_in.has-focus: Text {
+                        x: 14px;
+                        text: "doot:... ticket";
+                        color: #64748b;
+                        font-size: 13px;
+                        vertical-alignment: center;
+                    }
                 }
 
-                LineEdit {
-                    placeholder-text: "Nickname (optional)";
-                    text <=> root.connect_nickname_input;
-                    height: 38px;
+                // Nickname input
+                Rectangle {
+                    height: 42px;
+                    border-radius: 8px;
+                    background: #151922;
+                    border-width: 1px;
+                    border-color: nick_in.has-focus ? #3b82f6 : #28303f;
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+
+                        nick_in := TextInput {
+                            text <=> root.connect_nickname_input;
+                            color: #f8fafc;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            single-line: true;
+                        }
+                    }
+
+                    if root.connect_nickname_input == "" && !nick_in.has-focus: Text {
+                        x: 14px;
+                        text: "Peer nickname (optional)";
+                        color: #64748b;
+                        font-size: 13px;
+                        vertical-alignment: center;
+                    }
                 }
 
                 HorizontalLayout {
                     alignment: end;
                     spacing: 12px;
 
-                    Button {
+                    CustomButton {
                         text: "Cancel";
+                        primary: false;
                         clicked => {
                             root.show_connect_dialog = false;
                         }
                     }
 
-                    Button {
+                    CustomButton {
                         text: "Connect";
                         primary: true;
                         clicked => {
@@ -866,52 +966,44 @@ export component AppWindow inherits Window {
 
     // SETTINGS MODAL DIALOG
     if root.show_settings_dialog: Rectangle {
-        background: #000000aa;
+        background: #000000b0;
 
         TouchArea {
-            // Prevent click-through
+            // Modal backdrop interceptor
         }
 
         Rectangle {
-            width: 500px;
+            width: 520px;
             height: 380px;
             border-radius: 16px;
-            background: #1e232d;
+            background: #1b202c;
             border-width: 1px;
-            border-color: #333d4d;
+            border-color: #2f384a;
 
             VerticalLayout {
                 padding: 24px;
-                spacing: 14px;
+                spacing: 16px;
 
                 HorizontalLayout {
                     alignment: space-between;
 
                     Text {
-                        text: "Doot Identity & Network Settings";
+                        text: "Doot Sovereign Settings";
                         font-size: 18px;
                         font-weight: 700;
                         color: #f1f5f9;
                     }
 
-                    Rectangle {
-                        width: 28px;
-                        height: 28px;
-                        border-radius: 14px;
-                        background: close_settings_touch.has-hover ? #3b4556 : transparent;
-
-                        Text {
-                            text: "✕";
-                            font-size: 14px;
-                            color: #94a3b8;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-
-                        close_settings_touch := TouchArea {
-                            clicked => {
-                                root.show_settings_dialog = false;
-                            }
+                    IconButton {
+                        icon: @image-url("icons/close.svg");
+                        icon-size: 14px;
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 15px;
+                        bg-color: transparent;
+                        bg-hover-color: #2b3445;
+                        clicked => {
+                            root.show_settings_dialog = false;
                         }
                     }
                 }
@@ -920,20 +1012,37 @@ export component AppWindow inherits Window {
                     text: "Your Public Nickname:";
                     font-size: 13px;
                     font-weight: 600;
-                    color: #e2e8f0;
+                    color: #cbd5e1;
                 }
 
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: 10px;
 
-                    LineEdit {
-                        text <=> root.settings_nickname_input;
+                    Rectangle {
                         horizontal-stretch: 1;
-                        height: 38px;
+                        height: 40px;
+                        border-radius: 8px;
+                        background: #151922;
+                        border-width: 1px;
+                        border-color: settings_nick.has-focus ? #3b82f6 : #28303f;
+
+                        HorizontalLayout {
+                            padding-left: 14px;
+                            padding-right: 14px;
+
+                            settings_nick := TextInput {
+                                text <=> root.settings_nickname_input;
+                                color: #f8fafc;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                                single-line: true;
+                            }
+                        }
                     }
 
-                    Button {
+                    CustomButton {
                         text: "Save";
+                        primary: true;
                         clicked => {
                             root.update_nickname(root.settings_nickname_input);
                         }
@@ -941,32 +1050,41 @@ export component AppWindow inherits Window {
                 }
 
                 Text {
-                    text: "Your Sovereign Ticket (Share this with friends):";
+                    text: "Your Sovereign Shareable Ticket:";
                     font-size: 13px;
                     font-weight: 600;
-                    color: #e2e8f0;
+                    color: #cbd5e1;
                 }
 
                 Rectangle {
                     height: 48px;
                     border-radius: 8px;
-                    background: #15181f;
+                    background: #151922;
+                    border-width: 1px;
+                    border-color: #28303f;
 
                     HorizontalLayout {
-                        padding: 8px;
+                        padding-left: 14px;
+                        padding-right: 8px;
                         alignment: space-between;
 
                         Text {
                             text: root.my_ticket;
-                            font-size: 11px;
+                            font-size: 12px;
                             color: #94a3b8;
                             overflow: elide;
                             vertical-alignment: center;
                             horizontal-stretch: 1;
                         }
 
-                        Button {
-                            text: "Copy";
+                        IconButton {
+                            icon: @image-url("icons/copy.svg");
+                            icon-size: 15px;
+                            width: 34px;
+                            height: 34px;
+                            border-radius: 8px;
+                            bg-color: #212937;
+                            bg-hover-color: #2e384c;
                             clicked => {
                                 root.copy_my_ticket();
                             }
@@ -977,7 +1095,7 @@ export component AppWindow inherits Window {
                 HorizontalLayout {
                     alignment: end;
 
-                    Button {
+                    CustomButton {
                         text: "Done";
                         primary: true;
                         clicked => {
@@ -993,16 +1111,16 @@ export component AppWindow inherits Window {
     if root.show_toast: Rectangle {
         y: 20px;
         x: (parent.width - self.width) / 2;
-        width: 380px;
-        height: 44px;
-        border-radius: 22px;
-        background: #1e3a5f;
+        width: 400px;
+        height: 46px;
+        border-radius: 23px;
+        background: #19273c;
         border-width: 1px;
         border-color: #3b82f6;
 
         HorizontalLayout {
-            padding-left: 16px;
-            padding-right: 16px;
+            padding-left: 18px;
+            padding-right: 14px;
             alignment: space-between;
 
             Text {
@@ -1015,19 +1133,16 @@ export component AppWindow inherits Window {
                 horizontal-stretch: 1;
             }
 
-            TouchArea {
-                width: 24px;
-                height: 24px;
+            IconButton {
+                icon: @image-url("icons/close.svg");
+                icon-size: 13px;
+                width: 28px;
+                height: 28px;
+                border-radius: 14px;
+                bg-color: transparent;
+                bg-hover-color: #28374d;
                 clicked => {
                     root.close_toast();
-                }
-
-                Text {
-                    text: "✕";
-                    font-size: 12px;
-                    color: #bfdbfe;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
                 }
             }
         }
