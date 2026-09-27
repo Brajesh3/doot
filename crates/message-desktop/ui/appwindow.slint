@@ -1,0 +1,1035 @@
+import { Button, LineEdit, ScrollView, ListView } from "std-widgets.slint";
+
+export struct ContactData {
+    peer_key: string,
+    nickname: string,
+    last_message: string,
+    timestamp: string,
+    unread_count: int,
+    is_online: bool,
+    is_direct: bool,
+    rtt_ms: int,
+    is_typing: bool,
+}
+
+export struct MessageData {
+    id: string,
+    is_mine: bool,
+    content: string,
+    timestamp: string,
+    status: string,
+    has_attachment: bool,
+    file_name: string,
+    file_size_text: string,
+    is_directory: bool,
+    local_path: string,
+}
+
+export component AppWindow inherits Window {
+    title: "Doot - Sovereign P2P Messenger (दूत)";
+    min-width: 800px;
+    min-height: 580px;
+    preferred-width: 1040px;
+    preferred-height: 720px;
+    background: #111318;
+    default-font-family: "Segoe UI, Roboto, sans-serif";
+
+    // Properties
+    in-out property <[ContactData]> contacts: [];
+    in-out property <int> selected_contact_index: -1;
+    in-out property <string> active_peer_key: "";
+    in-out property <string> active_peer_nick: "";
+    in-out property <string> active_conn_info: "";
+    in-out property <bool> active_is_direct: false;
+    in-out property <bool> is_peer_typing: false;
+    in-out property <[MessageData]> messages: [];
+    in-out property <string> search_query: "";
+    in-out property <string> input_text: "";
+    in-out property <string> my_nickname: "Doot User";
+    in-out property <string> my_node_id: "";
+    in-out property <string> my_ticket: "";
+    in-out property <string> toast_banner: "";
+    in-out property <bool> show_toast: false;
+    in-out property <bool> show_connect_dialog: false;
+    in-out property <string> connect_ticket_input: "";
+    in-out property <string> connect_nickname_input: "";
+    in-out property <bool> show_settings_dialog: false;
+    in-out property <string> settings_nickname_input: "";
+
+    // Callbacks
+    callback select_contact(int);
+    callback send_message(string);
+    callback send_typing(bool);
+    callback attach_file();
+    callback ping_active_peer();
+    callback copy_active_peer_key();
+    callback open_attachment(string);
+    callback connect_peer(string, string);
+    callback update_nickname(string);
+    callback copy_my_ticket();
+    callback copy_my_node_id();
+    callback close_toast();
+
+    // Main Horizontal Split: Sidebar + Chat Area
+    HorizontalLayout {
+        spacing: 0;
+
+        // LEFT SIDEBAR
+        Rectangle {
+            width: 320px;
+            background: #171a21;
+            border-width: 0;
+
+            VerticalLayout {
+                padding: 12px;
+                spacing: 10px;
+
+                // Sidebar Header
+                HorizontalLayout {
+                    alignment: space-between;
+                    height: 40px;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+
+                        Text {
+                            text: "🕊";
+                            font-size: 22px;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "Doot";
+                            font-size: 20px;
+                            font-weight: 700;
+                            color: #e3e8f2;
+                            vertical-alignment: center;
+                        }
+
+                        // Online tag
+                        Rectangle {
+                            background: #132d20;
+                            border-radius: 6px;
+                            border-color: #27834a;
+                            border-width: 1px;
+                            height: 20px;
+                            width: 60px;
+                            y: 10px;
+
+                            Text {
+                                text: "QUIC P2P";
+                                font-size: 10px;
+                                font-weight: 600;
+                                color: #4ade80;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Action buttons
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: end;
+
+                        Rectangle {
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 16px;
+                            background: connect_touch.has-hover ? #2a303d : #20242e;
+
+                            Text {
+                                text: "+";
+                                font-size: 20px;
+                                font-weight: 600;
+                                color: #78a9ff;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            connect_touch := TouchArea {
+                                clicked => {
+                                    root.show_connect_dialog = true;
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 16px;
+                            background: settings_touch.has-hover ? #2a303d : #20242e;
+
+                            Text {
+                                text: "⚙";
+                                font-size: 16px;
+                                color: #a6b2c6;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            settings_touch := TouchArea {
+                                clicked => {
+                                    root.settings_nickname_input = root.my_nickname;
+                                    root.show_settings_dialog = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Search Bar
+                Rectangle {
+                    height: 38px;
+                    border-radius: 19px;
+                    background: #20242f;
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        spacing: 8px;
+
+                        Text {
+                            text: "🔍";
+                            font-size: 13px;
+                            vertical-alignment: center;
+                        }
+
+                        search_input := LineEdit {
+                            placeholder-text: "Search contacts...";
+                            text <=> root.search_query;
+                            horizontal-stretch: 1;
+                        }
+                    }
+                }
+
+                // Contact List
+                ListView {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+
+                    for contact[idx] in root.contacts: Rectangle {
+                        height: 64px;
+                        border-radius: 12px;
+                        background: idx == root.selected_contact_index ? #232c3d : (item_touch.has-hover ? #1c212b : transparent);
+
+                        HorizontalLayout {
+                            padding: 8px;
+                            spacing: 12px;
+
+                            // Avatar Circle
+                            Rectangle {
+                                width: 44px;
+                                height: 44px;
+                                border-radius: 22px;
+                                background: idx == root.selected_contact_index ? #1d4ed8 : #283244;
+
+                                Text {
+                                    text: contact.nickname != "" ? contact.nickname : "P";
+                                    font-size: 16px;
+                                    font-weight: 700;
+                                    color: #f1f5f9;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                // Status Dot
+                                Rectangle {
+                                    width: 12px;
+                                    height: 12px;
+                                    border-radius: 6px;
+                                    x: 32px;
+                                    y: 32px;
+                                    background: contact.is_direct ? #22c55e : (contact.is_online ? #f59e0b : #64748b);
+                                    border-width: 2px;
+                                    border-color: #171a21;
+                                }
+                            }
+
+                            // Contact info
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 2px;
+                                horizontal-stretch: 1;
+
+                                HorizontalLayout {
+                                    alignment: space-between;
+
+                                    Text {
+                                        text: contact.nickname;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                        color: #e2e8f0;
+                                        overflow: elide;
+                                    }
+
+                                    Text {
+                                        text: contact.timestamp;
+                                        font-size: 11px;
+                                        color: #64748b;
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    alignment: space-between;
+
+                                    Text {
+                                        text: contact.is_typing ? "typing..." : contact.last_message;
+                                        font-size: 12px;
+                                        color: contact.is_typing ? #38bdf8 : #94a3b8;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+
+                                    if contact.unread_count > 0: Rectangle {
+                                        background: #3b82f6;
+                                        border-radius: 9px;
+                                        height: 18px;
+                                        width: 22px;
+
+                                        Text {
+                                            text: contact.unread_count;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            color: #ffffff;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        item_touch := TouchArea {
+                            clicked => {
+                                root.select_contact(idx);
+                            }
+                        }
+                    }
+                }
+
+                // Footer My Identity
+                Rectangle {
+                    height: 52px;
+                    border-radius: 10px;
+                    background: #1c202a;
+
+                    HorizontalLayout {
+                        padding: 8px;
+                        spacing: 10px;
+                        alignment: space-between;
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: start;
+
+                            Rectangle {
+                                width: 34px;
+                                height: 34px;
+                                border-radius: 17px;
+                                background: #1e3a5f;
+
+                                Text {
+                                    text: "👤";
+                                    font-size: 16px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 1px;
+
+                                Text {
+                                    text: root.my_nickname;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: #f1f5f9;
+                                }
+
+                                Text {
+                                    text: root.my_node_id;
+                                    font-size: 10px;
+                                    color: #64748b;
+                                    overflow: elide;
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 8px;
+                            background: copy_ticket_touch.has-hover ? #2e384d : #252c3a;
+
+                            Text {
+                                text: "📋";
+                                font-size: 13px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            copy_ticket_touch := TouchArea {
+                                clicked => {
+                                    root.copy_my_ticket();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // RIGHT CHAT AREA
+        Rectangle {
+            horizontal-stretch: 1;
+            background: #111318;
+
+            if root.active_peer_key == "": VerticalLayout {
+                alignment: center;
+                spacing: 16px;
+
+                Text {
+                    text: "🕊";
+                    font-size: 64px;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "Welcome to Doot";
+                    font-size: 26px;
+                    font-weight: 700;
+                    color: #f8fafc;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "Sovereign P2P Encrypted Messenger over QUIC";
+                    font-size: 14px;
+                    color: #94a3b8;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle {
+                    width: 180px;
+                    height: 40px;
+                    border-radius: 20px;
+                    background: empty_connect_touch.has-hover ? #1d4ed8 : #2563eb;
+
+                    Text {
+                        text: "Connect with Peer";
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: #ffffff;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    empty_connect_touch := TouchArea {
+                        clicked => {
+                            root.show_connect_dialog = true;
+                        }
+                    }
+                }
+            }
+
+            if root.active_peer_key != "": VerticalLayout {
+                spacing: 0;
+
+                // Chat Top Bar
+                Rectangle {
+                    height: 60px;
+                    background: #171a21;
+
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        alignment: space-between;
+
+                        HorizontalLayout {
+                            spacing: 12px;
+                            alignment: start;
+
+                            Rectangle {
+                                width: 40px;
+                                height: 40px;
+                                border-radius: 20px;
+                                background: #2563eb;
+                                y: 10px;
+
+                                Text {
+                                    text: root.active_peer_nick != "" ? root.active_peer_nick : "P";
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                    color: #ffffff;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 2px;
+
+                                Text {
+                                    text: root.active_peer_nick;
+                                    font-size: 16px;
+                                    font-weight: 700;
+                                    color: #f1f5f9;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+
+                                    Rectangle {
+                                        width: 8px;
+                                        height: 8px;
+                                        border-radius: 4px;
+                                        background: root.active_is_direct ? #22c55e : #f59e0b;
+                                        y: 4px;
+                                    }
+
+                                    Text {
+                                        text: root.active_conn_info != "" ? root.active_conn_info : "Encrypted QUIC";
+                                        font-size: 12px;
+                                        color: #94a3b8;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Header Actions
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: end;
+
+                            Rectangle {
+                                width: 36px;
+                                height: 36px;
+                                border-radius: 18px;
+                                background: ping_touch.has-hover ? #2e384d : #202633;
+                                y: 12px;
+
+                                Text {
+                                    text: "⚡";
+                                    font-size: 16px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                ping_touch := TouchArea {
+                                    clicked => {
+                                        root.ping_active_peer();
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 36px;
+                                height: 36px;
+                                border-radius: 18px;
+                                background: copy_peer_touch.has-hover ? #2e384d : #202633;
+                                y: 12px;
+
+                                Text {
+                                    text: "🔑";
+                                    font-size: 15px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                copy_peer_touch := TouchArea {
+                                    clicked => {
+                                        root.copy_active_peer_key();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Chat Message Stream
+                ListView {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+
+                    for msg in root.messages: Rectangle {
+                        background: transparent;
+                        min-height: 48px;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            padding-top: 4px;
+                            padding-bottom: 4px;
+                            alignment: msg.is_mine ? end : start;
+
+                            Rectangle {
+                                border-radius: 14px;
+                                background: msg.is_mine ? #1e3a8a : #1f242f;
+                                max-width: 520px;
+
+                                VerticalLayout {
+                                    padding: 10px;
+                                    spacing: 4px;
+
+                                    if msg.has_attachment: Rectangle {
+                                        height: 48px;
+                                        border-radius: 8px;
+                                        background: #14213d;
+
+                                        HorizontalLayout {
+                                            padding: 8px;
+                                            spacing: 8px;
+                                            alignment: start;
+
+                                            Text {
+                                                text: msg.is_directory ? "📁" : "📄";
+                                                font-size: 20px;
+                                                vertical-alignment: center;
+                                            }
+
+                                            VerticalLayout {
+                                                alignment: center;
+                                                spacing: 2px;
+                                                horizontal-stretch: 1;
+
+                                                Text {
+                                                    text: msg.file_name;
+                                                    font-size: 13px;
+                                                    font-weight: 600;
+                                                    color: #93c5fd;
+                                                    overflow: elide;
+                                                }
+
+                                                Text {
+                                                    text: msg.file_size_text;
+                                                    font-size: 11px;
+                                                    color: #bfdbfe;
+                                                }
+                                            }
+                                        }
+
+                                        TouchArea {
+                                            clicked => {
+                                                root.open_attachment(msg.local_path);
+                                            }
+                                        }
+                                    }
+
+                                    if msg.content != "": Text {
+                                        text: msg.content;
+                                        font-size: 14px;
+                                        color: #f8fafc;
+                                        wrap: word-wrap;
+                                    }
+
+                                    HorizontalLayout {
+                                        alignment: end;
+                                        spacing: 4px;
+
+                                        Text {
+                                            text: msg.timestamp;
+                                            font-size: 10px;
+                                            color: msg.is_mine ? #93c5fd : #64748b;
+                                        }
+
+                                        if msg.is_mine: Text {
+                                            text: msg.status == "Delivered" ? "✓✓" : (msg.status == "Sent" ? "✓" : "⏳");
+                                            font-size: 11px;
+                                            color: #93c5fd;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Peer is typing row
+                if root.is_peer_typing: Rectangle {
+                    height: 24px;
+                    background: transparent;
+
+                    HorizontalLayout {
+                        padding-left: 20px;
+                        spacing: 6px;
+
+                        Text {
+                            text: "●";
+                            font-size: 10px;
+                            color: #38bdf8;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "Peer is typing...";
+                            font-size: 12px;
+                            color: #38bdf8;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Chat Input Area
+                Rectangle {
+                    height: 64px;
+                    background: #171a21;
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        padding-top: 8px;
+                        padding-bottom: 8px;
+                        spacing: 8px;
+                        alignment: center;
+
+                        // Attach button
+                        Rectangle {
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 22px;
+                            background: attach_touch.has-hover ? #2e384d : #222733;
+
+                            Text {
+                                text: "📎";
+                                font-size: 18px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            attach_touch := TouchArea {
+                                clicked => {
+                                    root.attach_file();
+                                }
+                            }
+                        }
+
+                        // Message Input
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            height: 44px;
+                            border-radius: 22px;
+                            background: #20242f;
+
+                            HorizontalLayout {
+                                padding-left: 16px;
+                                padding-right: 16px;
+
+                                msg_input := LineEdit {
+                                    placeholder-text: "Type an encrypted message...";
+                                    text <=> root.input_text;
+                                    horizontal-stretch: 1;
+                                    accepted => {
+                                        if (root.input_text != "") {
+                                            root.send_message(root.input_text);
+                                            root.input_text = "";
+                                        }
+                                    }
+                                    edited => {
+                                        root.send_typing(root.input_text != "");
+                                    }
+                                }
+                            }
+                        }
+
+                        // Send Button
+                        Rectangle {
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 22px;
+                            background: root.input_text != "" ? (send_touch.has-hover ? #1d4ed8 : #2563eb) : #28303f;
+
+                            Text {
+                                text: "➤";
+                                font-size: 18px;
+                                color: root.input_text != "" ? #ffffff : #64748b;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            send_touch := TouchArea {
+                                clicked => {
+                                    if (root.input_text != "") {
+                                        root.send_message(root.input_text);
+                                        root.input_text = "";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // CONNECT PEER MODAL DIALOG
+    if root.show_connect_dialog: Rectangle {
+        background: #000000aa;
+
+        TouchArea {
+            // Prevent click-through
+        }
+
+        Rectangle {
+            width: 460px;
+            height: 300px;
+            border-radius: 16px;
+            background: #1e232d;
+            border-width: 1px;
+            border-color: #333d4d;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 16px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    Text {
+                        text: "Connect Peer over QUIC";
+                        font-size: 18px;
+                        font-weight: 700;
+                        color: #f1f5f9;
+                    }
+
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        border-radius: 14px;
+                        background: close_conn_touch.has-hover ? #3b4556 : transparent;
+
+                        Text {
+                            text: "✕";
+                            font-size: 14px;
+                            color: #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        close_conn_touch := TouchArea {
+                            clicked => {
+                                root.show_connect_dialog = false;
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: "Paste peer's shareable ticket (doot:...) to establish a sovereign direct connection:";
+                    font-size: 12px;
+                    color: #94a3b8;
+                    wrap: word-wrap;
+                }
+
+                LineEdit {
+                    placeholder-text: "doot:... ticket";
+                    text <=> root.connect_ticket_input;
+                    height: 38px;
+                }
+
+                LineEdit {
+                    placeholder-text: "Nickname (optional)";
+                    text <=> root.connect_nickname_input;
+                    height: 38px;
+                }
+
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 12px;
+
+                    Button {
+                        text: "Cancel";
+                        clicked => {
+                            root.show_connect_dialog = false;
+                        }
+                    }
+
+                    Button {
+                        text: "Connect";
+                        primary: true;
+                        clicked => {
+                            if (root.connect_ticket_input != "") {
+                                root.connect_peer(root.connect_ticket_input, root.connect_nickname_input);
+                                root.connect_ticket_input = "";
+                                root.connect_nickname_input = "";
+                                root.show_connect_dialog = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // SETTINGS MODAL DIALOG
+    if root.show_settings_dialog: Rectangle {
+        background: #000000aa;
+
+        TouchArea {
+            // Prevent click-through
+        }
+
+        Rectangle {
+            width: 500px;
+            height: 380px;
+            border-radius: 16px;
+            background: #1e232d;
+            border-width: 1px;
+            border-color: #333d4d;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 14px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    Text {
+                        text: "Doot Identity & Network Settings";
+                        font-size: 18px;
+                        font-weight: 700;
+                        color: #f1f5f9;
+                    }
+
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        border-radius: 14px;
+                        background: close_settings_touch.has-hover ? #3b4556 : transparent;
+
+                        Text {
+                            text: "✕";
+                            font-size: 14px;
+                            color: #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        close_settings_touch := TouchArea {
+                            clicked => {
+                                root.show_settings_dialog = false;
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: "Your Public Nickname:";
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #e2e8f0;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+
+                    LineEdit {
+                        text <=> root.settings_nickname_input;
+                        horizontal-stretch: 1;
+                        height: 38px;
+                    }
+
+                    Button {
+                        text: "Save";
+                        clicked => {
+                            root.update_nickname(root.settings_nickname_input);
+                        }
+                    }
+                }
+
+                Text {
+                    text: "Your Sovereign Ticket (Share this with friends):";
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #e2e8f0;
+                }
+
+                Rectangle {
+                    height: 48px;
+                    border-radius: 8px;
+                    background: #15181f;
+
+                    HorizontalLayout {
+                        padding: 8px;
+                        alignment: space-between;
+
+                        Text {
+                            text: root.my_ticket;
+                            font-size: 11px;
+                            color: #94a3b8;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        Button {
+                            text: "Copy";
+                            clicked => {
+                                root.copy_my_ticket();
+                            }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    alignment: end;
+
+                    Button {
+                        text: "Done";
+                        primary: true;
+                        clicked => {
+                            root.show_settings_dialog = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // TOAST NOTIFICATION BANNER
+    if root.show_toast: Rectangle {
+        y: 20px;
+        x: (parent.width - self.width) / 2;
+        width: 380px;
+        height: 44px;
+        border-radius: 22px;
+        background: #1e3a5f;
+        border-width: 1px;
+        border-color: #3b82f6;
+
+        HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            alignment: space-between;
+
+            Text {
+                text: root.toast_banner;
+                font-size: 13px;
+                font-weight: 600;
+                color: #ffffff;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+
+            TouchArea {
+                width: 24px;
+                height: 24px;
+                clicked => {
+                    root.close_toast();
+                }
+
+                Text {
+                    text: "✕";
+                    font-size: 12px;
+                    color: #bfdbfe;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
